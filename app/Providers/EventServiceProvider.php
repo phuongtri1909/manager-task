@@ -2,15 +2,18 @@
 
 namespace App\Providers;
 
+use App\Models\Menu;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
+use JeroenNoten\LaravelAdminLte\Events\BuildingMenu;
 
 class EventServiceProvider extends ServiceProvider
 {
     /**
-     * The event to listener mappings for the application.
+     * The event listener mappings for the application.
      *
      * @var array<class-string, array<int, class-string>>
      */
@@ -22,17 +25,34 @@ class EventServiceProvider extends ServiceProvider
 
     /**
      * Register any events for your application.
+     *
+     * @return void
      */
-    public function boot(): void
+    public function boot()
     {
-        //
+        Event::listen(BuildingMenu::class, function (BuildingMenu $event) {
+            // dd(auth()->user());
+            $menus = Menu::with('children', 'children.children', 'children.children.children')->whereNull('parent_id')->get();
+            $this->formatMenu($menus)->each(function ($m) use ($event) {
+                $event->menu->add($m);
+            });
+        });
     }
 
-    /**
-     * Determine if events and listeners should be automatically discovered.
-     */
-    public function shouldDiscoverEvents(): bool
+    public function formatMenu($menus, $list = null): Collection
     {
-        return false;
+        $list = collect($list);
+
+        foreach ($menus as $index => $menu) {
+            if ($menu->children->isNotEmpty()) {
+                $list[$index] = [];
+                $submenu = $this->formatMenu($menu['children'], $list[$index])->toArray();
+                $list[$index] = array_merge($menu['config'], ['submenu' => $submenu]);
+            } else {
+                $list->push($menu['config']);
+            }
+        }
+
+        return $list;
     }
 }
