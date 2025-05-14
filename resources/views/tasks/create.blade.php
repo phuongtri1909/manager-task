@@ -1,6 +1,6 @@
 @extends('layouts.partials.sidebar')
 
-@section('title', 'Tạo nhiệm vụ mới')
+@section('title', 'Tạo công việc mới')
 
 @section('main-content')
     <div class="category-form-container">
@@ -8,7 +8,7 @@
         <div class="content-breadcrumb">
             <ol class="breadcrumb-list">
                 <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Nhiệm vụ</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Công việc</a></li>
                 <li class="breadcrumb-item current">Tạo mới</li>
             </ol>
         </div>
@@ -17,7 +17,7 @@
             <div class="form-header">
                 <div class="form-title">
                     <i class="fas fa-plus-circle icon-title"></i>
-                    <h5>Tạo nhiệm vụ mới</h5>
+                    <h5>Tạo công việc mới</h5>
                 </div>
             </div>
 
@@ -85,7 +85,7 @@
                             </div>
                             <div class="form-hint">
                                 <i class="fas fa-info-circle"></i>
-                                <span>Nếu bật, nhiệm vụ sẽ được giao cho (các) phòng ban.</span>
+                                <span>Nếu bật, công việc sẽ được giao cho (các) phòng ban.</span>
                             </div>
                         </div>
                         
@@ -119,7 +119,7 @@
                                 </div>
                                 <div class="form-hint">
                                     <i class="fas fa-info-circle"></i>
-                                    <span>Nếu bật, trưởng phòng và phó phòng của các phòng ban được chọn sẽ tự động được gán nhiệm vụ.</span>
+                                    <span>Nếu bật, trưởng phòng và phó phòng của các phòng ban được chọn sẽ tự động được gán công việc.</span>
                                 </div>
                             </div>
                         </div>
@@ -151,7 +151,7 @@
                             <i class="fas fa-arrow-left"></i> Quay lại
                         </a>
                         <button type="submit" class="save-button">
-                            <i class="fas fa-save"></i> Tạo nhiệm vụ
+                            <i class="fas fa-save"></i> Tạo công việc
                         </button>
                     </div>
                 </form>

@@ -144,8 +144,8 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Bạn có chắc chắn muốn duyệt yêu cầu gia hạn của <strong class="user-name"></strong> cho nhiệm vụ <strong class="task-title"></strong>?</p>
-                    <p>Khi được duyệt, thời hạn của nhiệm vụ sẽ được cập nhật theo yêu cầu.</p>
+                    <p>Bạn có chắc chắn muốn duyệt yêu cầu gia hạn của <strong class="user-name"></strong> cho công việc <strong class="task-title"></strong>?</p>
+                    <p>Khi được duyệt, thời hạn của công việc sẽ được cập nhật theo yêu cầu.</p>
                     
                     <form action="" method="POST">
                         @csrf
@@ -170,7 +170,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Bạn có chắc chắn muốn từ chối yêu cầu gia hạn của <strong class="user-name"></strong> cho nhiệm vụ <strong class="task-title"></strong>?</p>
+                    <p>Bạn có chắc chắn muốn từ chối yêu cầu gia hạn của <strong class="user-name"></strong> cho công việc <strong class="task-title"></strong>?</p>
                     
                     <form action="" method="POST">
                         @csrf

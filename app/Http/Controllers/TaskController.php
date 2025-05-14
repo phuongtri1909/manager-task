@@ -100,7 +100,7 @@ class TaskController extends Controller
         $user = Auth::user();
         
         if (!$user->canAssignTasks()) {
-            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền tạo nhiệm vụ!');
+            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền tạo công việc!');
         }
         
         $departments = $this->getAvailableDepartments($user);
@@ -117,7 +117,7 @@ class TaskController extends Controller
         $user = Auth::user();
         
         if (!$user->canAssignTasks()) {
-            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền tạo nhiệm vụ!');
+            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền tạo công việc!');
         }
         
         $validated = $request->validate([
@@ -179,7 +179,7 @@ class TaskController extends Controller
             
             DB::commit();
             
-            return redirect()->route('tasks.index')->with('success', 'Nhiệm vụ đã được tạo thành công!');
+            return redirect()->route('tasks.index')->with('success', 'Công việc đã được tạo thành công!');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Đã xảy ra lỗi: ' . $e->getMessage())->withInput();
@@ -215,7 +215,7 @@ class TaskController extends Controller
         $user = Auth::user();
         
         if (!($user->isAdmin() || $task->created_by === $user->id)) {
-            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền chỉnh sửa nhiệm vụ này!');
+            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền chỉnh sửa công việc này!');
         }
         
         $departments = $this->getAvailableDepartments($user);
@@ -234,7 +234,7 @@ class TaskController extends Controller
         $user = Auth::user();
         
         if (!($user->isAdmin() || $task->created_by === $user->id)) {
-            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền chỉnh sửa nhiệm vụ này!');
+            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền chỉnh sửa công việc này!');
         }
         
         $validated = $request->validate([
@@ -296,7 +296,7 @@ class TaskController extends Controller
             
             DB::commit();
             
-            return redirect()->route('tasks.show', $task)->with('success', 'Nhiệm vụ đã được cập nhật thành công!');
+            return redirect()->route('tasks.show', $task)->with('success', 'Công việc đã được cập nhật thành công!');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Đã xảy ra lỗi: ' . $e->getMessage())->withInput();
@@ -311,12 +311,12 @@ class TaskController extends Controller
         $user = Auth::user();
         
         if (!($user->isAdmin() || $task->created_by === $user->id)) {
-            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền xóa nhiệm vụ này!');
+            return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền xóa công việc này!');
         }
         
         $task->delete();
         
-        return redirect()->route('tasks.index')->with('success', 'Nhiệm vụ đã được xóa thành công!');
+        return redirect()->route('tasks.index')->with('success', 'Công việc đã được xóa thành công!');
     }
     
     /**
@@ -327,7 +327,7 @@ class TaskController extends Controller
         $user = Auth::user();
         
         if (!$task->users()->where('users.id', $user->id)->exists()) {
-            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công nhiệm vụ này!');
+            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công công việc này!');
         }
         
         $validated = $request->validate([
@@ -339,7 +339,7 @@ class TaskController extends Controller
             'completion_date' => $validated['status'] === 'completed' ? now() : null,
         ]);
         
-        return redirect()->route('tasks.show', $task)->with('success', 'Trạng thái nhiệm vụ đã được cập nhật thành công!');
+        return redirect()->route('tasks.show', $task)->with('success', 'Trạng thái công việc đã được cập nhật thành công!');
     }
     
     /**
@@ -361,7 +361,7 @@ class TaskController extends Controller
         }
         
         if (!$canApprove) {
-            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không có quyền phê duyệt nhiệm vụ này!');
+            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không có quyền phê duyệt công việc này!');
         }
         
         $task->users()->updateExistingPivot($assignee->id, [
@@ -369,7 +369,7 @@ class TaskController extends Controller
             'approved_at' => now(),
         ]);
         
-        return redirect()->route('tasks.show', $task)->with('success', 'Nhiệm vụ đã được phê duyệt thành công!');
+        return redirect()->route('tasks.show', $task)->with('success', 'Công việc đã được phê duyệt thành công!');
     }
     
     /**
@@ -574,7 +574,7 @@ class TaskController extends Controller
             $activities[$date][] = [
                 'time' => date('H:i', strtotime($creation->created_at)),
                 'user' => $creation->creator->name,
-                'action' => 'đã tạo nhiệm vụ',
+                'action' => 'đã tạo công việc',
                 'description' => $creation->title,
                 'task_id' => $creation->id,
                 'icon' => 'fa-plus',
@@ -587,7 +587,7 @@ class TaskController extends Controller
             $activities[$date][] = [
                 'time' => date('H:i', strtotime($completion->completion_date)),
                 'user' => $completion->name,
-                'action' => 'đã hoàn thành nhiệm vụ',
+                'action' => 'đã hoàn thành công việc',
                 'description' => $completion->title,
                 'task_id' => $completion->task_id,
                 'icon' => 'fa-check',

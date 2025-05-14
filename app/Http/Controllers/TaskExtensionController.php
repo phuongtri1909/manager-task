@@ -25,7 +25,7 @@ class TaskExtensionController extends Controller
         
         // Check if user is assigned to the task
         if (!$task->users()->where('users.id', $user->id)->exists()) {
-            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công nhiệm vụ này!');
+            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công công việc này!');
         }
         
         return view('task_extensions.request', compact('task'));
@@ -40,7 +40,7 @@ class TaskExtensionController extends Controller
         
         // Check if user is assigned to the task
         if (!$task->users()->where('users.id', $user->id)->exists()) {
-            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công nhiệm vụ này!');
+            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công công việc này!');
         }
         
         $validated = $request->validate([

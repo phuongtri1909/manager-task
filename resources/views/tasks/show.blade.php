@@ -1,6 +1,6 @@
 @extends('layouts.partials.sidebar')
 
-@section('title', 'Chi tiết nhiệm vụ')
+@section('title', 'Chi tiết công việc')
 
 @section('main-content')
     <div class="category-container">
@@ -8,7 +8,7 @@
         <div class="content-breadcrumb">
             <ol class="breadcrumb-list">
                 <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Nhiệm vụ</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Công việc</a></li>
                 <li class="breadcrumb-item current">Chi tiết</li>
             </ol>
         </div>
@@ -66,13 +66,13 @@
                                 <div class="task-meta-value">{{ $task->deadline->format('d/m/Y H:i') }}</div>
                             </div>
                             <div class="task-meta-item">
-                                <div class="task-meta-label"><i class="fas fa-tag me-1"></i>Loại nhiệm vụ</div>
-                                <div class="task-meta-value">{{ $task->for_departments ? 'Nhiệm vụ phòng ban' : 'Nhiệm vụ cá nhân' }}</div>
+                                <div class="task-meta-label"><i class="fas fa-tag me-1"></i>Loại công việc</div>
+                                <div class="task-meta-value">{{ $task->for_departments ? 'Công việc phòng ban' : 'Công việc cá nhân' }}</div>
                             </div>
                         </div>
 
                         <div class="form-section">
-                            <div class="form-section-title"><i class="fas fa-align-left me-2"></i>Mô tả nhiệm vụ</div>
+                            <div class="form-section-title"><i class="fas fa-align-left me-2"></i>Mô tả công việc</div>
                             <div class="task-description">
                                 {!! nl2br(e($task->description)) !!}
                             </div>
@@ -318,7 +318,7 @@
                     }
                 });
             } else {
-                if (confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) {
+                if (confirm('Bạn có chắc chắn muốn xóa công việc này?')) {
                     form.submit();
                 }
             }

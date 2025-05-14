@@ -1,6 +1,6 @@
 @extends('layouts.partials.sidebar')
 
-@section('title', 'Chỉnh sửa nhiệm vụ')
+@section('title', 'Chỉnh sửa công việc')
 
 @section('main-content')
     <div class="category-form-container">
@@ -8,7 +8,7 @@
         <div class="content-breadcrumb">
             <ol class="breadcrumb-list">
                 <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Nhiệm vụ</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Công việc</a></li>
                 <li class="breadcrumb-item current">Chỉnh sửa</li>
             </ol>
         </div>
@@ -17,7 +17,7 @@
             <div class="form-header">
                 <div class="form-title">
                     <i class="fas fa-edit icon-title"></i>
-                    <h5>Chỉnh sửa nhiệm vụ: {{ $task->title }}</h5>
+                    <h5>Chỉnh sửa công việc: {{ $task->title }}</h5>
                 </div>
             </div>
 
@@ -86,7 +86,7 @@
                             </div>
                             <div class="form-hint">
                                 <i class="fas fa-info-circle"></i>
-                                <span>Nếu bật, nhiệm vụ sẽ được giao cho (các) phòng ban.</span>
+                                <span>Nếu bật, công việc sẽ được giao cho (các) phòng ban.</span>
                             </div>
                         </div>
                         
@@ -120,7 +120,7 @@
                                 </div>
                                 <div class="form-hint">
                                     <i class="fas fa-info-circle"></i>
-                                    <span>Nếu bật, trưởng phòng và phó phòng của các phòng ban được chọn sẽ tự động được gán nhiệm vụ.</span>
+                                    <span>Nếu bật, trưởng phòng và phó phòng của các phòng ban được chọn sẽ tự động được gán công việc.</span>
                                 </div>
                             </div>
                         </div>

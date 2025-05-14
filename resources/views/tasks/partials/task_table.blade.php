@@ -74,7 +74,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="6" class="text-center">Không có nhiệm vụ nào</td>
+                <td colspan="6" class="text-center">Không có công việc nào</td>
             </tr>
         @endforelse
     </tbody>

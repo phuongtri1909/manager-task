@@ -1,6 +1,6 @@
 @extends('layouts.partials.sidebar')
 
-@section('title', 'Danh sách nhiệm vụ')
+@section('title', 'Danh sách công việc')
 
 @section('main-content')
 <div class="category-container">
@@ -8,7 +8,7 @@
     <div class="content-breadcrumb">
         <ol class="breadcrumb-list">
             <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-            <li class="breadcrumb-item current">Nhiệm vụ</li>
+            <li class="breadcrumb-item current">Công việc</li>
         </ol>
     </div>
 
@@ -16,11 +16,11 @@
         <div class="card-top">
             <div class="card-title">
                 <i class="fas fa-tasks icon-title"></i>
-                <h5>Danh sách nhiệm vụ</h5>
+                <h5>Danh sách công việc</h5>
             </div>
             @if(Auth::user()->canAssignTasks())
                 <a href="{{ route('tasks.create') }}" class="action-button">
-                    <i class="fas fa-plus-circle"></i> Tạo nhiệm vụ mới
+                    <i class="fas fa-plus-circle"></i> Tạo công việc mới
                 </a>
             @endif
         </div>
@@ -112,17 +112,17 @@
                         <i class="fas fa-tasks"></i>
                     </div>
                     @if (request('title') || request('status') || request('overdue'))
-                        <h4>Không tìm thấy nhiệm vụ nào</h4>
-                        <p>Không có nhiệm vụ nào phù hợp với bộ lọc hiện tại.</p>
+                        <h4>Không tìm thấy công việc nào</h4>
+                        <p>Không có công việc nào phù hợp với bộ lọc hiện tại.</p>
                         <a href="{{ route('tasks.index') }}" class="action-button">
                             <i class="fas fa-times"></i> Xóa bộ lọc
                         </a>
                     @else
-                        <h4>Chưa có nhiệm vụ nào</h4>
-                        <p>Bắt đầu bằng cách thêm nhiệm vụ đầu tiên.</p>
+                        <h4>Chưa có công việc nào</h4>
+                        <p>Bắt đầu bằng cách thêm công việc đầu tiên.</p>
                         @if(Auth::user()->canAssignTasks())
                             <a href="{{ route('tasks.create') }}" class="action-button">
-                                <i class="fas fa-plus-circle"></i> Tạo nhiệm vụ mới
+                                <i class="fas fa-plus-circle"></i> Tạo công việc mới
                             </a>
                         @endif
                     @endif
@@ -200,7 +200,7 @@
                 @if(method_exists($tasks, 'links'))
                 <div class="pagination-wrapper">
                     <div class="pagination-info">
-                        Hiển thị {{ $tasks->firstItem() ?? 0 }} đến {{ $tasks->lastItem() ?? 0 }} của {{ $tasks->total() }} nhiệm vụ
+                        Hiển thị {{ $tasks->firstItem() ?? 0 }} đến {{ $tasks->lastItem() ?? 0 }} của {{ $tasks->total() }} công việc
                     </div>
                     <div class="pagination-controls">
                         {{ $tasks->appends(request()->query())->links() }}
@@ -214,7 +214,7 @@
     @if(Auth::user()->isAdmin() || Auth::user()->isDirector() || Auth::user()->isDeputyDirector() || Auth::user()->isDepartmentHead() || Auth::user()->isDeputyDepartmentHead())
         <div class="text-end mt-4">
             <a href="{{ route('tasks.statistics') }}" class="action-button">
-                <i class="fas fa-chart-pie me-1"></i> Xem thống kê nhiệm vụ
+                <i class="fas fa-chart-pie me-1"></i> Xem thống kê công việc
             </a>
         </div>
     @endif
@@ -254,7 +254,7 @@
                 }
             });
         } else {
-            if (confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) {
+            if (confirm('Bạn có chắc chắn muốn xóa công việc này?')) {
                 form.submit();
             }
         }

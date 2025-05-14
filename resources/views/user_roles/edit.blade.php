@@ -155,7 +155,7 @@
                                     </div>
                                     <div class="role-info-body p-3 bg-light rounded-bottom">
                                         <ul class="role-features mb-0">
-                                            <li><i class="fas fa-check-circle text-info me-2"></i>Thực hiện nhiệm vụ trong phòng ban</li>
+                                            <li><i class="fas fa-check-circle text-info me-2"></i>Thực hiện công việc trong phòng ban</li>
                                             <li><i class="fas fa-check-circle text-info me-2"></i>Bắt buộc chọn phòng ban</li>
                                             <li><i class="fas fa-times-circle text-danger me-2"></i>Không có quyền tạo và giao task</li>
                                         </ul>
@@ -230,7 +230,7 @@
                                     <div class="form-check form-switch">
                                         <input type="checkbox" class="form-check-input" id="can_assign_job" name="can_assign_job" value="1" 
                                             {{ old('can_assign_job', $user->can_assign_job) ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="can_assign_job">Cho phép tạo và giao nhiệm vụ</label>
+                                        <label class="form-check-label" for="can_assign_job">Cho phép tạo và giao công việc</label>
                                     </div>
                                 </div>
                             </div>

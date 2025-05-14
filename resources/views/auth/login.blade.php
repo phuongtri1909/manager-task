@@ -5,7 +5,7 @@
 @section('content')
 <div class="login-box">
     <div class="login-logo">
-        <a href="{{ url('/') }}"><b>Quản lý</b> Nhiệm vụ</a>
+        <a href="{{ url('/') }}"><b>Quản lý</b> Công việc</a>
     </div>
     
     <div class="card">

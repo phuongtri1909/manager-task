@@ -3,7 +3,7 @@
         <thead>
             <tr>
                 <th class="column-small">ID</th>
-                <th class="column-large">Nhiệm vụ</th>
+                <th class="column-large">Công việc</th>
                 <th class="column-medium">Người yêu cầu</th>
                 <th class="column-medium">Thời hạn hiện tại</th>
                 <th class="column-medium">Thời hạn mới</th>
@@ -112,7 +112,7 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label class="text-muted">Nhiệm vụ:</label>
+                                            <label class="text-muted">Công việc:</label>
                                             <div class="fw-bold">
                                                 <a href="{{ route('tasks.show', $extension->task_id) }}">
                                                     {{ $extension->task->title ?? 'N/A' }}

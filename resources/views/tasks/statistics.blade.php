@@ -1,6 +1,6 @@
 @extends('layouts.partials.sidebar')
 
-@section('title', 'Thống kê nhiệm vụ')
+@section('title', 'Thống kê công việc')
 
 @section('main-content')
 <div class="category-container">
@@ -8,7 +8,7 @@
     <div class="content-breadcrumb">
         <ol class="breadcrumb-list">
             <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Nhiệm vụ</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Công việc</a></li>
             <li class="breadcrumb-item current">Thống kê</li>
         </ol>
     </div>
@@ -17,7 +17,7 @@
         <div class="card-top">
             <div class="card-title">
                 <i class="fas fa-chart-bar icon-title"></i>
-                <h5>Thống kê nhiệm vụ</h5>
+                <h5>Thống kê công việc</h5>
             </div>
             <div class="statistics-filter">
                 <form action="{{ route('tasks.statistics') }}" method="GET" class="filter-form-inline">
@@ -58,14 +58,14 @@
                         <i class="fas fa-tasks"></i>
                     </div>
                     <div class="stats-box-content">
-                        <div class="stats-box-label">Tổng nhiệm vụ</div>
+                        <div class="stats-box-label">Tổng công việc</div>
                         <div class="stats-box-value">{{ $totalTasks }}</div>
                         <div class="stats-box-progress">
                             <div class="progress">
                                 <div class="progress-bar" style="width: 100%"></div>
                             </div>
                             <div class="progress-text">
-                                Tất cả nhiệm vụ trong hệ thống
+                                Tất cả công việc trong hệ thống
                             </div>
                         </div>
                     </div>
@@ -83,7 +83,7 @@
                                 <div class="progress-bar" style="width: {{ $totalTasks > 0 ? ($completedTasks / $totalTasks) * 100 : 0 }}%"></div>
                             </div>
                             <div class="progress-text">
-                                {{ $totalTasks > 0 ? number_format(($completedTasks / $totalTasks) * 100, 1) : 0 }}% nhiệm vụ đã hoàn thành
+                                {{ $totalTasks > 0 ? number_format(($completedTasks / $totalTasks) * 100, 1) : 0 }}% công việc đã hoàn thành
                             </div>
                         </div>
                     </div>
@@ -101,7 +101,7 @@
                                 <div class="progress-bar" style="width: {{ $totalTasks > 0 ? ($inProgressTasks / $totalTasks) * 100 : 0 }}%"></div>
                             </div>
                             <div class="progress-text">
-                                {{ $totalTasks > 0 ? number_format(($inProgressTasks / $totalTasks) * 100, 1) : 0 }}% nhiệm vụ đang thực hiện
+                                {{ $totalTasks > 0 ? number_format(($inProgressTasks / $totalTasks) * 100, 1) : 0 }}% công việc đang thực hiện
                             </div>
                         </div>
                     </div>
@@ -119,7 +119,7 @@
                                 <div class="progress-bar" style="width: {{ $totalTasks > 0 ? ($overdueTasks / $totalTasks) * 100 : 0 }}%"></div>
                             </div>
                             <div class="progress-text">
-                                {{ $totalTasks > 0 ? number_format(($overdueTasks / $totalTasks) * 100, 1) : 0 }}% nhiệm vụ quá hạn
+                                {{ $totalTasks > 0 ? number_format(($overdueTasks / $totalTasks) * 100, 1) : 0 }}% công việc quá hạn
                             </div>
                         </div>
                     </div>
@@ -131,7 +131,7 @@
                 <div class="stats-card animate-slide-up" style="--delay: 0.5s">
                     <div class="stats-card-header stats-card-primary">
                         <i class="fas fa-chart-pie"></i>
-                        <span>Phân bố trạng thái nhiệm vụ</span>
+                        <span>Phân bố trạng thái công việc</span>
                     </div>
                     <div class="stats-card-body">
                         <canvas id="taskStatusChart" height="250"></canvas>
@@ -141,7 +141,7 @@
                 <div class="stats-card animate-slide-up" style="--delay: 0.6s">
                     <div class="stats-card-header stats-card-info">
                         <i class="fas fa-building"></i>
-                        <span>Nhiệm vụ theo phòng ban</span>
+                        <span>Công việc theo phòng ban</span>
                     </div>
                     <div class="stats-card-body">
                         <canvas id="departmentTasksChart" height="250"></canvas>
@@ -155,7 +155,7 @@
                 <div class="stats-card animate-slide-up" style="--delay: 0.7s">
                     <div class="stats-card-header">
                         <i class="fas fa-tasks"></i>
-                        <span>Tiến độ nhiệm vụ theo phòng ban</span>
+                        <span>Tiến độ công việc theo phòng ban</span>
                     </div>
                     <div class="stats-card-body table-container">
                         <table class="data-table">
@@ -202,13 +202,13 @@
                 <div class="stats-card animate-slide-up" style="--delay: 0.8s">
                     <div class="stats-card-header">
                         <i class="fas fa-check-circle"></i>
-                        <span>Nhiệm vụ hoàn thành gần đây</span>
+                        <span>Công việc hoàn thành gần đây</span>
                     </div>
                     <div class="stats-card-body table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Nhiệm vụ</th>
+                                    <th>Công việc</th>
                                     <th>Người thực hiện</th>
                                     <th>Thời gian hoàn thành</th>
                                 </tr>
@@ -237,7 +237,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="empty-data">Không có nhiệm vụ hoàn thành gần đây</td>
+                                        <td colspan="3" class="empty-data">Không có công việc hoàn thành gần đây</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -326,7 +326,7 @@
     
     <div class="text-end mt-4">
         <a href="{{ route('tasks.index') }}" class="action-button">
-            <i class="fas fa-arrow-left me-1"></i> Quay lại danh sách nhiệm vụ
+            <i class="fas fa-arrow-left me-1"></i> Quay lại danh sách công việc
         </a>
     </div>
 </div>

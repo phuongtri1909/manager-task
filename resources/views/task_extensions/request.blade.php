@@ -1,6 +1,6 @@
 @extends('layouts.partials.sidebar')
 
-@section('title', 'Yêu cầu gia hạn nhiệm vụ')
+@section('title', 'Yêu cầu gia hạn công việc')
 
 @section('main-content')
     <div class="category-form-container">
@@ -8,7 +8,7 @@
         <div class="content-breadcrumb">
             <ol class="breadcrumb-list">
                 <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Nhiệm vụ</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Công việc</a></li>
                 <li class="breadcrumb-item"><a href="{{ route('tasks.show', $task) }}">Chi tiết</a></li>
                 <li class="breadcrumb-item current">Yêu cầu gia hạn</li>
             </ol>
@@ -18,7 +18,7 @@
             <div class="form-header">
                 <div class="form-title">
                     <i class="fas fa-clock icon-title"></i>
-                    <h5>Yêu cầu gia hạn cho nhiệm vụ: {{ $task->title }}</h5>
+                    <h5>Yêu cầu gia hạn cho công việc: {{ $task->title }}</h5>
                 </div>
             </div>
 
