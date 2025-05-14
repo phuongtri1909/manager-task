@@ -47,8 +47,36 @@ class Department extends Model
         return $this->belongsToMany(Permission::class, 'department_permission');
     }
 
+    public function tasks(): BelongsToMany
+    {
+        return $this->belongsToMany(Task::class, 'department_task')
+            ->withPivot('status', 'viewed_at')
+            ->withTimestamps();
+    }
+
     public function branchs()
     {
         return $this->belongsToMany(Branch::class, DepartmentBranch::class, 'department_id', 'branch_id');
+    }
+
+    public function departmentHead()
+    {
+        return $this->users()->whereHas('role', function($query) {
+            $query->where('slug', 'department-head');
+        })->first();
+    }
+
+    public function deputyDepartmentHead()
+    {
+        return $this->users()->whereHas('role', function($query) {
+            $query->where('slug', 'deputy-department-head');
+        })->first();
+    }
+
+    public function staff()
+    {
+        return $this->users()->whereHas('role', function($query) {
+            $query->where('slug', 'staff');
+        })->get();
     }
 }

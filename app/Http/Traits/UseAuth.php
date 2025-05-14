@@ -44,4 +44,21 @@ trait UseAuth
             $model->updated_by = auth()->id();
         });
     }
+
+    public function setAttributes($attributes)
+    {
+        $authUser = auth()->user();
+        if ($authUser && is_array($attributes) && !array_key_exists('updated_by', $attributes)) {
+            $attributes['updated_by'] = $authUser->id;
+        }
+        if ($authUser && is_array($attributes) && !array_key_exists('created_by', $attributes)) {
+            $attributes['created_by'] = $authUser->id;
+        }
+        return $attributes;
+    }
+    
+    public function fillWithAuth($attributes)
+    {
+        return $this->fill($this->setAttributes($attributes));
+    }
 }
