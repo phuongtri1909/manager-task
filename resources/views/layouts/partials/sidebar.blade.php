@@ -10,6 +10,29 @@
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <img src="{{ asset('assets/images/user.png') }}" alt="User Avatar" class="user-avatar">
+                    <div class="user-name">
+                        {{ Auth::user()->name }}
+                    </div>
+                </div>
+                <div class="user-role">
+                    @if (Auth::user()->isAdmin())
+                        <span class="badge bg-danger">Quản trị viên</span>
+                    @elseif (Auth::user()->isDirector())    
+                        <span class="badge bg-primary">Giám đốc</span>
+                    @elseif (Auth::user()->isDeputyDirector())
+                        <span class="badge bg-success">Phó giám đốc</span>
+                    @elseif (Auth::user()->isDepartmentHead())
+                        <span class="badge bg-info">Trưởng phòng</span>
+                    @elseif (Auth::user()->isDeputyDepartmentHead())
+                        <span class="badge bg-warning">Phó trưởng phòng</span>
+                    @elseif (Auth::user()->isStaff())
+                        <span class="badge bg-secondary">Nhân viên</span>
+                    @endif
+                </div>
+            </div>
             <div class="sidebar-menu">
                 <ul>
                     <li class="{{ Route::currentRouteNamed('tasks.index') ? 'active' : '' }}">

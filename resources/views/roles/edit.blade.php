@@ -61,6 +61,28 @@
                     </div>
                     
                     <div class="form-group">
+                        <label class="form-label-custom">
+                            Phạm vi vai trò <span class="required-mark">*</span>
+                        </label>
+                        <div class="custom-control custom-radio mb-2">
+                            <input type="radio" id="scope_global" name="scope" value="{{ \App\Models\Role::SCOPE_GLOBAL }}" class="custom-control-input" 
+                                {{ old('scope', $role->scope) == \App\Models\Role::SCOPE_GLOBAL ? 'checked' : '' }} required>
+                            <label class="custom-control-label" for="scope_global">Toàn hệ thống (Admin, Giám đốc, Phó giám đốc)</label>
+                        </div>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" id="scope_department" name="scope" value="{{ \App\Models\Role::SCOPE_DEPARTMENT }}" class="custom-control-input"
+                                {{ old('scope', $role->scope) == \App\Models\Role::SCOPE_DEPARTMENT ? 'checked' : '' }}>
+                            <label class="custom-control-label" for="scope_department">Phòng ban cụ thể (Trưởng phòng, Phó trưởng phòng, Nhân viên)</label>
+                        </div>
+                        <div class="error-message">
+                            @error('scope')
+                                {{ $message }}
+                            @enderror
+                        </div>
+                        <div class="form-hint">Vai trò toàn hệ thống có quyền truy cập tất cả phòng ban. Vai trò phòng ban chỉ có quyền trong phòng ban được chỉ định.</div>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="description" class="form-label-custom">
                             Mô tả
                         </label>
@@ -86,11 +108,11 @@
     </div>
 @stop
 
-@section('js')
+@push('scripts')
     <script>
         $(document).ready(function() {
             // Auto-focus on first input
             $('#name').focus();
         });
     </script>
-@stop 
+@endpush 

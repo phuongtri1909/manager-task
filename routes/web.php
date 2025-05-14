@@ -26,7 +26,17 @@ Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 // Task Management Routes
 Route::middleware(['auth'])->group(function () {
     // Roles
-    Route::resource('roles', App\Http\Controllers\RoleController::class);
+    
+    
+    // User Role Assignments (only for admin)
+    Route::middleware(['check.role:admin'])->group(function () {
+
+        Route::resource('roles', App\Http\Controllers\RoleController::class)->except(['create','store','destroy','show']);
+
+        Route::get('user-roles', [App\Http\Controllers\UserRoleController::class, 'index'])->name('user-roles.index');
+        Route::get('user-roles/{user}/edit', [App\Http\Controllers\UserRoleController::class, 'edit'])->name('user-roles.edit');
+        Route::put('user-roles/{user}', [App\Http\Controllers\UserRoleController::class, 'update'])->name('user-roles.update');
+    });
     
     // Tasks
     Route::resource('tasks', App\Http\Controllers\TaskController::class);

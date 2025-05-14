@@ -76,11 +76,11 @@
     </div>
 @stop
 
-@section('css')
+@push('styles')
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.4/css/dataTables.bootstrap4.min.css">
-@stop
+@endpush
 
-@section('js')
+@push('scripts')
     <script src="https://cdn.datatables.net/1.11.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.4/js/dataTables.bootstrap4.min.js"></script>
     <script>
@@ -191,4 +191,4 @@
             </div>
         </div>
     </div>
-@stop 
+@endpush 

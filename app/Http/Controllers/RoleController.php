@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Role;
+use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -11,12 +12,7 @@ class RoleController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware(function ($request, $next) {
-            if (!auth()->user()->isAdmin()) {
-                return redirect()->route('dashboard')->with('error', 'Bạn không có quyền truy cập vào khu vực này!');
-            }
-            return $next($request);
-        });
+        $this->middleware('check.role:admin');
     }
 
     /**
@@ -33,7 +29,8 @@ class RoleController extends Controller
      */
     public function create()
     {
-        return view('roles.create');
+        $departments = Department::all();
+        return view('roles.create', compact('departments'));
     }
 
     /**
@@ -44,7 +41,8 @@ class RoleController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'level' => 'required|integer|min:0'
+            'level' => 'required|integer|min:0',
+            'scope' => 'required|in:' . Role::SCOPE_GLOBAL . ',' . Role::SCOPE_DEPARTMENT,
         ]);
 
         $validated['slug'] = Str::slug($validated['name']);
@@ -78,10 +76,9 @@ class RoleController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'level' => 'required|integer|min:0'
+            'level' => 'required|integer|min:0',
+            'scope' => 'required|in:' . Role::SCOPE_GLOBAL . ',' . Role::SCOPE_DEPARTMENT,
         ]);
-
-        $validated['slug'] = Str::slug($validated['name']);
 
         $role->update($validated);
 

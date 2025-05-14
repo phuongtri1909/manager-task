@@ -35,15 +35,46 @@ class CheckRole
                 ->with('error', 'Tài khoản của bạn chưa được phân quyền.');
         }
 
+        // Admin always has access to everything
+        if ($user->isAdmin()) {
+            return $next($request);
+        }
+        
         $hasPermission = false;
+        
+        // Check if the route involves a specific department
+        $departmentId = null;
+        
+        // Check if we're accessing a department-specific resource
+        // For example, if we have a route parameter 'department'
+        if ($request->route('department')) {
+            $departmentId = $request->route('department')->id;
+        } 
+        // Or if we're passing department_id as a parameter
+        elseif ($request->has('department_id')) {
+            $departmentId = $request->input('department_id');
+        }
+        // Or if we have a task that belongs to a department
+        elseif ($request->route('task') && $request->route('task')->department_id) {
+            $departmentId = $request->route('task')->department_id;
+        }
         
         foreach ($roles as $role) {
             $methodName = 'is' . ucfirst($role);
             
-            // Kiểm tra nếu phương thức tồn tại và trả về true
+            // Check if method exists and returns true
             if (method_exists($user, $methodName) && call_user_func([$user, $methodName])) {
-                $hasPermission = true;
-                break;
+                // For global roles (admin, director, deputy director)
+                if (in_array($role, ['admin', 'director', 'deputyDirector'])) {
+                    $hasPermission = true;
+                    break;
+                }
+                
+                // For department-specific roles, check if user has access to the department
+                if ($departmentId === null || $user->hasAccessToDepartment($departmentId)) {
+                    $hasPermission = true;
+                    break;
+                }
             }
         }
 

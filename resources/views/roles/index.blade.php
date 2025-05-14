@@ -18,9 +18,14 @@
                 <i class="fas fa-user-tag icon-title"></i>
                 <h5>Danh sách vai trò</h5>
             </div>
-            <a href="{{ route('roles.create') }}" class="action-button">
-                <i class="fas fa-plus-circle"></i> Thêm vai trò
-            </a>
+            <div class="action-buttons">
+                <a href="{{ route('user-roles.index') }}" class="action-button bg-info">
+                    <i class="fas fa-user-cog"></i> Phân quyền người dùng
+                </a>
+                {{-- <a href="{{ route('roles.create') }}" class="action-button">
+                    <i class="fas fa-plus-circle"></i> Thêm vai trò
+                </a> --}}
+            </div>
         </div>
         
         <div class="card-content">
@@ -38,9 +43,9 @@
                     </div>
                     <h4>Chưa có vai trò nào</h4>
                     <p>Bắt đầu bằng cách thêm vai trò đầu tiên.</p>
-                    <a href="{{ route('roles.create') }}" class="action-button">
+                    {{-- <a href="{{ route('roles.create') }}" class="action-button">
                         <i class="fas fa-plus-circle"></i> Thêm vai trò
-                    </a>
+                    </a> --}}
                 </div>
             @else
                 <div class="data-table-container">
@@ -49,9 +54,11 @@
                             <tr>
                                 <th class="column-small">STT</th>
                                 <th class="column-medium">Tên vai trò</th>
-                                <th class="column-medium">Slug</th>
+                                
                                 <th class="column-small">Cấp độ</th>
-                                <th class="column-large">Mô tả</th>
+                                <th class="column-small">Phạm vi</th>
+                                <th class="column-small">Tạo task</th>
+                                <th class="column-medium">Mô tả</th>
                                 <th class="column-small text-center">Thao tác</th>
                             </tr>
                         </thead>
@@ -60,21 +67,41 @@
                                 <tr>
                                     <td class="text-center">{{ $index + 1 }}</td>
                                     <td class="item-title">{{ $role->name }}</td>
-                                    <td>{{ $role->slug }}</td>
+                                   
                                     <td class="text-center">{{ $role->level }}</td>
+                                    <td>
+                                        @if(isset($role->scope))
+                                            @if($role->scope == \App\Models\Role::SCOPE_GLOBAL)
+                                                <span class="badge bg-primary">Toàn hệ thống</span>
+                                            @else
+                                                <span class="badge bg-info">Phòng ban</span>
+                                            @endif
+                                        @else 
+                                            <span class="badge bg-secondary">Chưa xác định</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if($role->slug === 'admin')
+                                            <i class="fas fa-check-circle text-success" title="Mặc định có quyền"></i>
+                                        @elseif($role->slug === 'staff')
+                                            <i class="fas fa-times-circle text-danger" title="Không được phép"></i>
+                                        @else
+                                            <i class="fas fa-question-circle text-warning" title="Cần được cấp quyền"></i>
+                                        @endif
+                                    </td>
                                     <td>{{ $role->description }}</td>
                                     <td>
                                         <div class="action-buttons-wrapper">
                                             <a href="{{ route('roles.edit', $role) }}" class="action-icon edit-icon" title="Chỉnh sửa">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <form action="{{ route('roles.destroy', $role) }}" method="POST" class="delete-action-container d-inline">
+                                            {{-- <form action="{{ route('roles.destroy', $role) }}" method="POST" class="delete-action-container d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="button" class="action-icon bg-danger" style="border: none" onclick="confirmDelete(event, this.form)" title="Xóa">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
-                                            </form>
+                                            </form> --}}
                                         </div>
                                     </td>
                                 </tr>

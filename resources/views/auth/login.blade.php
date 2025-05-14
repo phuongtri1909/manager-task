@@ -2,7 +2,7 @@
 
 @section('title', 'Đăng nhập')
 
-@section('main-content')
+@section('content')
 <div class="login-box">
     <div class="login-logo">
         <a href="{{ url('/') }}"><b>Quản lý</b> Nhiệm vụ</a>
@@ -82,7 +82,7 @@
 </div>
 @endsection
 
-@section('css')
+@push('styles')
 <style>
     .login-page {
         background: linear-gradient(135deg, #2980b9 0%, #2c3e50 100%);
@@ -114,4 +114,4 @@
         color: #3c8dbc;
     }
 </style>
-@endsection 
+@endpush

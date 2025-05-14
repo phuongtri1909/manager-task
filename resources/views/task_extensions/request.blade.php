@@ -116,7 +116,7 @@
     </div>
 @stop
 
-@section('js')
+@push('scripts')
     <script>
         $(document).ready(function() {
             // Set minimum date for datetime-local input
@@ -134,4 +134,4 @@
             }
         });
     </script>
-@stop 
+@endpush

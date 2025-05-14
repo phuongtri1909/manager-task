@@ -17,7 +17,7 @@
     <!-- Custom styles -->
     <link rel="stylesheet" href="{{ asset('assets/css/styles.css') }}">
     
-    @yield('css')
+    @yield('styles')
 </head>
 <body class="hold-transition login-page">
     
@@ -53,6 +53,6 @@
         });
     </script>
     
-    @yield('js')
+    @yield('scripts')
 </body>
 </html> 

@@ -283,7 +283,7 @@
     </div>
 @stop
 
-@section('js')
+@push('scripts')
     <script>
         $(document).ready(function() {
             // Bootstrap tooltip initialization
@@ -324,4 +324,4 @@
             }
         }
     </script>
-@stop 
+@endpush 

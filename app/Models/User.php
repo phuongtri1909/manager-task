@@ -169,13 +169,66 @@ class User extends Authenticatable
         return $this->role?->slug === 'staff';
     }
 
+    /**
+     * Check if the user can assign tasks
+     * 
+     * @return bool
+     */
     public function canAssignTasks(): bool
     {
-        return $this->can_assign_job || 
-               $this->isAdmin() || 
-               $this->isDirector() || 
-               $this->isDeputyDirector() || 
-               $this->isDepartmentHead() || 
-               $this->isDeputyDepartmentHead();
+        // Only admin always has task creation privileges, others need explicit permission
+        return $this->can_assign_job || $this->isAdmin();
+    }
+
+    /**
+     * Check if user belongs to a specific department with a role
+     *
+     * @param int $departmentId
+     * @return bool
+     */
+    public function belongsToDepartment(int $departmentId): bool
+    {
+        return $this->department_id === $departmentId;
+    }
+
+    /**
+     * Check if user has access to a department based on their role
+     *
+     * @param int $departmentId
+     * @return bool
+     */
+    public function hasAccessToDepartment(int $departmentId): bool
+    {
+        // Admin, Director, Deputy Director have access to all departments
+        if ($this->isAdmin() || $this->isDirector() || $this->isDeputyDirector()) {
+            return true;
+        }
+        
+        // Department-specific roles only have access to their own department
+        return $this->belongsToDepartment($departmentId);
+    }
+
+    /**
+     * Check if user has a specific role in a department
+     *
+     * @param string $roleSlug
+     * @param int|null $departmentId
+     * @return bool
+     */
+    public function hasRoleInDepartment(string $roleSlug, ?int $departmentId = null): bool
+    {
+        // First check if user has the role
+        $userRoleSlug = $this->role?->slug;
+        if ($userRoleSlug !== $roleSlug) {
+            return false;
+        }
+        
+        // If no department is specified, or the role is global, no need to check department
+        if ($departmentId === null || $this->role?->isGlobal()) {
+            return true;
+        }
+        
+        // For department-specific roles, check if user belongs to the department
+        return $this->belongsToDepartment($departmentId);
     }
 }
