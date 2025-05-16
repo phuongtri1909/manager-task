@@ -1,4 +1,4 @@
-@extends('layouts.auth')
+@extends('manager_task.layouts.auth')
 
 @section('title', 'Đăng nhập')
 

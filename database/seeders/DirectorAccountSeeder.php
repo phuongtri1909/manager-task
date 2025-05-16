@@ -30,7 +30,7 @@ class DirectorAccountSeeder extends Seeder
             'email' => 'giamdoc@example.com',
             'password' => Hash::make('password123'), // Đổi mật khẩu theo yêu cầu
             'role_id' => $directorRole->id,
-            'can_assign_job' => true,
+            'can_assign_task' => true,
         ]);
         
         $this->command->info('Tài khoản giám đốc đã được tạo thành công!');

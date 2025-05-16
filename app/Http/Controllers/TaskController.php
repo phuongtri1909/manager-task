@@ -89,7 +89,7 @@ class TaskController extends Controller
         // Get paginated results
         $tasks = $tasks->latest()->paginate(10);
         
-        return view('tasks.index', compact('tasks'));
+        return view('manager_task.tasks.index', compact('tasks'));
     }
 
     /**
@@ -106,7 +106,7 @@ class TaskController extends Controller
         $departments = $this->getAvailableDepartments($user);
         $users = $this->getAvailableUsers($user);
         
-        return view('tasks.create', compact('departments', 'users'));
+        return view('manager_task.tasks.create', compact('departments', 'users'));
     }
 
     /**
@@ -204,7 +204,7 @@ class TaskController extends Controller
         $canEdit = $user->isAdmin() || $task->created_by === $user->id;
         $canUpdateStatus = $task->users()->where('users.id', $user->id)->exists();
         
-        return view('tasks.show', compact('task', 'canEdit', 'canUpdateStatus'));
+        return view('manager_task.tasks.show', compact('task', 'canEdit', 'canUpdateStatus'));
     }
 
     /**
@@ -223,7 +223,7 @@ class TaskController extends Controller
         $selectedDepartments = $task->departments->pluck('id')->toArray();
         $selectedUsers = $task->users->pluck('id')->toArray();
         
-        return view('tasks.edit', compact('task', 'departments', 'users', 'selectedDepartments', 'selectedUsers'));
+        return view('manager_task.tasks.edit', compact('task', 'departments', 'users', 'selectedDepartments', 'selectedUsers'));
     }
 
     /**
@@ -626,7 +626,7 @@ class TaskController extends Controller
             ->values()
             ->all();
         
-        return view('tasks.statistics', compact(
+        return view('manager_task.tasks.statistics', compact(
             'departmentStats', 
             'userStats', 
             'year', 

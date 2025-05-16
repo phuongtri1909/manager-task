@@ -46,7 +46,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <!-- Global Alerts -->
-    @include('components.alert', ['alertType' => 'toast'])
+    @include('manager_task.components.alert', ['alertType' => 'toast'])
     <script src="{{ asset('ckeditor/ckeditor.js') }}"></script>
     <!-- Page specific JS -->
     @stack('scripts')

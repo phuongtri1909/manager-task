@@ -34,37 +34,37 @@ class RoleAccountsSeeder extends Seeder
                 'name' => 'Admin',
                 'email' => 'admin@example.com',
                 'password' => 'password123',
-                'can_assign_job' => true,
+                'can_assign_task' => true,
             ],
             'director' => [
                 'name' => 'Giám Đốc',
                 'email' => 'giamdoc@example.com',
                 'password' => 'password123',
-                'can_assign_job' => true,
+                'can_assign_task' => true,
             ],
             'deputy-director' => [
                 'name' => 'Phó Giám Đốc',
                 'email' => 'phogiamdoc@example.com',
                 'password' => 'password123',
-                'can_assign_job' => true,
+                'can_assign_task' => true,
             ],
             'department-head' => [
                 'name' => 'Trưởng Phòng',
                 'email' => 'truongphong@example.com',
                 'password' => 'password123',
-                'can_assign_job' => true,
+                'can_assign_task' => true,
             ],
             'deputy-department-head' => [
                 'name' => 'Phó Trưởng Phòng',
                 'email' => 'photruongphong@example.com',
                 'password' => 'password123',
-                'can_assign_job' => true,
+                'can_assign_task' => true,
             ],
             'staff' => [
                 'name' => 'Nhân Viên',
                 'email' => 'nhanvien@example.com',
                 'password' => 'password123',
-                'can_assign_job' => false,
+                'can_assign_task' => false,
             ],
         ];
         
@@ -84,7 +84,7 @@ class RoleAccountsSeeder extends Seeder
                         'password' => Hash::make($accountInfo['password']),
                         'role_id' => $role->id,
                         'department_id' => $department->id,
-                        'can_assign_job' => $accountInfo['can_assign_job'],
+                        'can_assign_task' => $accountInfo['can_assign_task'],
                     ]);
                     
                     $this->command->info("Tài khoản {$role->name} đã được tạo thành công!");
@@ -93,7 +93,7 @@ class RoleAccountsSeeder extends Seeder
                     $existingUser->update([
                         'role_id' => $role->id,
                         'department_id' => $department->id,
-                        'can_assign_job' => $accountInfo['can_assign_job'],
+                        'can_assign_task' => $accountInfo['can_assign_task'],
                     ]);
                     
                     $this->command->info("Tài khoản {$role->name} đã được cập nhật thành công!");

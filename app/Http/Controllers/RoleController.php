@@ -21,7 +21,7 @@ class RoleController extends Controller
     public function index()
     {
         $roles = Role::all();
-        return view('roles.index', compact('roles'));
+        return view('manager_task.roles.index', compact('roles'));
     }
 
     /**
@@ -30,7 +30,7 @@ class RoleController extends Controller
     public function create()
     {
         $departments = Department::all();
-        return view('roles.create', compact('departments'));
+        return view('manager_task.roles.create', compact('departments'));
     }
 
     /**
@@ -57,7 +57,7 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
-        return view('roles.show', compact('role'));
+        return view('manager_task.roles.show', compact('role'));
     }
 
     /**
@@ -65,7 +65,7 @@ class RoleController extends Controller
      */
     public function edit(Role $role)
     {
-        return view('roles.edit', compact('role'));
+        return view('manager_task.roles.edit', compact('role'));
     }
 
     /**

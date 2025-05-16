@@ -28,7 +28,7 @@ class TaskExtensionController extends Controller
             return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công công việc này!');
         }
         
-        return view('task_extensions.request', compact('task'));
+        return view('manager_task.task_extensions.request', compact('task'));
     }
     
     /**
@@ -118,7 +118,7 @@ class TaskExtensionController extends Controller
                 ->get();
         }
         
-        return view('task_extensions.index', compact('extensions'));
+        return view('manager_task.task_extensions.index', compact('extensions'));
     }
     
     /**

@@ -1,4 +1,4 @@
-@extends('layouts.partials.sidebar')
+@extends('manager_task.layouts.partials.sidebar')
 
 @section('title', 'Phân quyền người dùng')
 
@@ -142,7 +142,7 @@
                                         @endif
                                     </td>
                                     <td class="text-center">
-                                        @if($user->can_assign_job)
+                                        @if($user->can_assign_task)
                                             <i class="fas fa-check-circle text-success"></i>
                                         @else
                                             <i class="fas fa-times-circle text-danger"></i>
@@ -170,7 +170,7 @@
                         Hiển thị {{ $users->firstItem() ?? 0 }} đến {{ $users->lastItem() ?? 0 }} của {{ $users->total() }} người dùng
                     </div>
                     <div class="pagination-controls">
-                        {{ $users->appends(request()->query())->links('components.paginate') }}
+                        {{ $users->appends(request()->query())->links('manager_task.components.paginate') }}
                     </div>
                 </div>
                 @endif

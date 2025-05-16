@@ -47,7 +47,7 @@ class UserRoleController extends Controller
         // Get the filtered users and paginate the results
         $users = $usersQuery->orderBy('name')->paginate(15)->withQueryString();
         
-        return view('user_roles.index', compact('users', 'allRoles', 'allDepartments'));
+        return view('manager_task.user_roles.index', compact('users', 'allRoles', 'allDepartments'));
     }
     
     /**
@@ -61,7 +61,7 @@ class UserRoleController extends Controller
         $roles = Role::all();
         $departments = Department::all();
         
-        return view('user_roles.edit', compact('user', 'roles', 'departments'));
+        return view('manager_task.user_roles.edit', compact('user', 'roles', 'departments'));
     }
     
     /**
@@ -96,25 +96,25 @@ class UserRoleController extends Controller
         // Handle specific role types
         if ($roleSlug === 'admin') {
             // Admin always has all permissions and no department
-            $validated['can_assign_job'] = true;
+            $validated['can_assign_task'] = true;
             $validated['department_id'] = null;
         } 
         else if (in_array($roleSlug, ['director', 'deputy-director'])) {
             // Director/Deputy Director have no department
             $validated['department_id'] = null;
-            $validated['can_assign_job'] = $request->has('can_assign_job');
+            $validated['can_assign_task'] = $request->has('can_assign_task');
         }
         else if (in_array($roleSlug, ['department-head', 'deputy-department-head'])) {
             // Department Head/Deputy need department and can have task creation rights
-            $validated['can_assign_job'] = $request->has('can_assign_job');
+            $validated['can_assign_task'] = $request->has('can_assign_task');
         }
         else if ($roleSlug === 'staff') {
             // Staff always have no task creation rights
-            $validated['can_assign_job'] = false;
+            $validated['can_assign_task'] = false;
         }
         else {
             // Default - use input values
-            $validated['can_assign_job'] = $request->has('can_assign_job');
+            $validated['can_assign_task'] = $request->has('can_assign_task');
             
             // Set department_id to null for global roles
             if ($role->isGlobal()) {

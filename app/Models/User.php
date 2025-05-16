@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Http\Traits\UseActiveScope;
 use App\Http\Traits\UseAuth;
-use App\Http\Traits\UseRoles;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +13,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+
+use App\Http\Traits\UseRoles;
 
 class User extends Authenticatable
 {
@@ -32,7 +33,6 @@ class User extends Authenticatable
         'department_id',
         'position_id',
         'unit_id',
-        'role_id',
         'can_assign_job',
         'code_for_job_assignment',
         'co_tong_hop',
@@ -40,6 +40,8 @@ class User extends Authenticatable
         'ma_don_vi_cong_tac',
         'nguoi_nhap',
         'id_can_bo',
+        'role_id',
+        'can_assign_task',
     ];
 
     /**
@@ -62,34 +64,10 @@ class User extends Authenticatable
         'can_assign_job' => 'boolean',
     ];
 
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function position(): BelongsTo
-    {
-        return $this->belongsTo(Position::class);
-    }
 
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
-    }
-
-    public function wards(): BelongsToMany
-    {
-        return $this->belongsToMany(Ward::class, 'user_ward');
-    }
-
-    public function unit(): BelongsTo
-    {
-        return $this->belongsTo(Unit::class);
-    }
-
-    public function permissions(): BelongsToMany
-    {
-        return $this->belongsToMany(Permission::class, 'permission_user');
     }
 
     public function tasks(): BelongsToMany
@@ -117,26 +95,6 @@ class User extends Authenticatable
     public function approvedExtensions(): HasMany
     {
         return $this->hasMany(TaskExtension::class, 'approved_by');
-    }
-
-    public function adminlte_profile_url()
-    {
-        return 'profile';
-    }
-    
-    public function permissionScoring(): BelongsToMany
-    {
-        return $this->belongsToMany(Permission::class, 'permission_user');
-    }
-    
-    public function permissionScoringIP(): BelongsToMany
-    {
-        return $this->belongsToMany(Permission::class, 'permission_user');
-    }
-    
-    public function permissionMroom(): BelongsToMany
-    {
-        return $this->belongsToMany(Permission::class, 'permission_user');
     }
 
     public function isAdmin(): bool
@@ -177,7 +135,13 @@ class User extends Authenticatable
     public function canAssignTasks(): bool
     {
         // Only admin always has task creation privileges, others need explicit permission
-        return $this->can_assign_job || $this->isAdmin();
+        return $this->can_assign_task;
+    }
+
+    public function canAssignTasksAdmin(): bool
+    {
+        // Only admin always has task creation privileges, others need explicit permission
+        return $this->can_assign_task || $this->isAdmin();
     }
 
     /**
@@ -230,5 +194,50 @@ class User extends Authenticatable
         
         // For department-specific roles, check if user belongs to the department
         return $this->belongsToDepartment($departmentId);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(Position::class);
+    }
+
+    public function wards(): BelongsToMany
+    {
+        return $this->belongsToMany(Ward::class, 'user_ward');
+    }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function permissions(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'permission_user');
+    }
+
+    public function adminlte_profile_url()
+    {
+        return 'profile';
+    }
+    
+    public function permissionScoring(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'permission_user');
+    }
+    
+    public function permissionScoringIP(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'permission_user');
+    }
+    
+    public function permissionMroom(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'permission_user');
     }
 }

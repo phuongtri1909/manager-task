@@ -1,4 +1,4 @@
-@extends('layouts.partials.sidebar')
+@extends('manager_task.layouts.partials.sidebar')
 
 @section('title', 'Danh sách yêu cầu gia hạn')
 
@@ -59,16 +59,16 @@
                 
                 <div class="tab-content" id="extensionsTabsContent">
                     <div class="tab-pane fade show active" id="all" role="tabpanel" aria-labelledby="all-tab">
-                        @include('task_extensions.partials.extension_table', ['extensionList' => $extensions])
+                        @include('manager_task.task_extensions.partials.extension_table', ['extensionList' => $extensions])
                     </div>
                     <div class="tab-pane fade" id="pending" role="tabpanel" aria-labelledby="pending-tab">
-                        @include('task_extensions.partials.extension_table', ['extensionList' => $extensions->where('status', 'pending')])
+                        @include('manager_task.task_extensions.partials.extension_table', ['extensionList' => $extensions->where('status', 'pending')])
                     </div>
                     <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab">
-                        @include('task_extensions.partials.extension_table', ['extensionList' => $extensions->where('status', 'approved')])
+                        @include('manager_task.task_extensions.partials.extension_table', ['extensionList' => $extensions->where('status', 'approved')])
                     </div>
                     <div class="tab-pane fade" id="rejected" role="tabpanel" aria-labelledby="rejected-tab">
-                        @include('task_extensions.partials.extension_table', ['extensionList' => $extensions->where('status', 'rejected')])
+                        @include('manager_task.task_extensions.partials.extension_table', ['extensionList' => $extensions->where('status', 'rejected')])
                     </div>
                 </div>
             </div>

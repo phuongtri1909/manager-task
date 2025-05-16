@@ -196,23 +196,23 @@
 {{-- Hướng dẫn sử dụng (sẽ không hiển thị khi component được gọi) --}}
 {{-- 
     Hiển thị thông báo từ session:
-    @include('components.alert')
+    @include('manager_task.components.alert')
     
     Sử dụng SweetAlert dạng toast:
-    @include('components.alert', ['alertType' => 'toast'])
+    @include('manager_task.components.alert', ['alertType' => 'toast'])
     
     Sử dụng SweetAlert dạng modal:
-    @include('components.alert', ['alertType' => 'modal'])
+    @include('manager_task.components.alert', ['alertType' => 'modal'])
     
     Truyền thông báo trực tiếp:
-    @include('components.alert', ['success' => 'Thao tác thành công!'])
+    @include('manager_task.components.alert', ['success' => 'Thao tác thành công!'])
     
     Tùy chỉnh thời gian tự động đóng:
-    @include('components.alert', ['autoCloseTime' => 3000])
+    @include('manager_task.components.alert', ['autoCloseTime' => 3000])
     
     Tắt tính năng tự động đóng:
-    @include('components.alert', ['autoClose' => false])
+    @include('manager_task.components.alert', ['autoClose' => false])
     
     Tắt nút đóng:
-    @include('components.alert', ['dismissible' => false])
+    @include('manager_task.components.alert', ['dismissible' => false])
 --}}

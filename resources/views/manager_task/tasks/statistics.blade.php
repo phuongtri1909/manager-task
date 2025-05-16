@@ -1,4 +1,4 @@
-@extends('layouts.partials.sidebar')
+@extends('manager_task.layouts.partials.sidebar')
 
 @section('title', 'Thống kê công việc')
 

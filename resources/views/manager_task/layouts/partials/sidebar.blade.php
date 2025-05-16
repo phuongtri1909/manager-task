@@ -1,18 +1,19 @@
-@extends('layouts.app')
+@extends('manager_task.layouts.app')
 
 @section('content')
     <div class="dashboard-container">
         <!-- Sidebar -->
         <div id="sidebar" class="sidebar">
             <div class="sidebar-header">
-                <img src="{{ asset('assets/images/logo/logo.png') }}" alt="logo" height="70">
+                <img src="{{ asset('vendor/adminlte/dist/img/AdminLTELogo.png') }}" alt="logo" height="70">
+                <span>Quản lý công việc</span>
                 <button id="close-sidebar" class="close-sidebar d-md-none">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="sidebar-user">
                 <div class="user-info">
-                    <img src="{{ asset('assets/images/user.png') }}" alt="User Avatar" class="user-avatar">
+                    {{-- <img src="{{ asset('assets/images/user.png') }}" alt="User Avatar" class="user-avatar"> --}}
                     <div class="user-name">
                         {{ Auth::user()->name }}
                     </div>
@@ -20,7 +21,7 @@
                 <div class="user-role">
                     @if (Auth::user()->isAdmin())
                         <span class="badge bg-danger">Quản trị viên</span>
-                    @elseif (Auth::user()->isDirector())    
+                    @elseif (Auth::user()->isDirector())
                         <span class="badge bg-primary">Giám đốc</span>
                     @elseif (Auth::user()->isDeputyDirector())
                         <span class="badge bg-success">Phó giám đốc</span>
@@ -42,12 +43,15 @@
                         </a>
                     </li>
 
-                    <li class="{{ Route::currentRouteNamed('tasks.create') ? 'active' : '' }}">
-                        <a href="{{ route('tasks.create') }}">
-                            <i class="fas fa-plus"></i>
-                            <span>Tạo công việc</span>
-                        </a>
-                    </li>
+                    @if (Auth::user()->canAssignTasks() && Auth::user()->isDirector() || Auth::user()->isDeputyDirector() || Auth::user()->isDepartmentHead() || Auth::user()->isDeputyDepartmentHead())
+                        <li class="{{ Route::currentRouteNamed('tasks.create') ? 'active' : '' }}">
+                            <a href="{{ route('tasks.create') }}">
+                                <i class="fas fa-plus"></i>
+                                <span>Tạo công việc</span>
+                            </a>
+                        </li>
+                    @endif
+
                     <li class="{{ Route::currentRouteNamed('task-extensions.index') ? 'active' : '' }}">
                         <a href="{{ route('task-extensions.index') }}">
                             <i class="fas fa-coffee"></i>

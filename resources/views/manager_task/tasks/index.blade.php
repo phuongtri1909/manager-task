@@ -1,4 +1,4 @@
-@extends('layouts.partials.sidebar')
+@extends('manager_task.layouts.partials.sidebar')
 
 @section('title', 'Danh sách công việc')
 
@@ -18,7 +18,7 @@
                 <i class="fas fa-tasks icon-title"></i>
                 <h5>Danh sách công việc</h5>
             </div>
-            @if(Auth::user()->canAssignTasks())
+            @if (Auth::user()->canAssignTasks() && Auth::user()->isDirector() || Auth::user()->isDeputyDirector() || Auth::user()->isDepartmentHead() || Auth::user()->isDeputyDepartmentHead())
                 <a href="{{ route('tasks.create') }}" class="action-button">
                     <i class="fas fa-plus-circle"></i> Tạo công việc mới
                 </a>
@@ -120,7 +120,7 @@
                     @else
                         <h4>Chưa có công việc nào</h4>
                         <p>Bắt đầu bằng cách thêm công việc đầu tiên.</p>
-                        @if(Auth::user()->canAssignTasks())
+                        @if (Auth::user()->canAssignTasks() && Auth::user()->isDirector() || Auth::user()->isDeputyDirector() || Auth::user()->isDepartmentHead() || Auth::user()->isDeputyDepartmentHead())
                             <a href="{{ route('tasks.create') }}" class="action-button">
                                 <i class="fas fa-plus-circle"></i> Tạo công việc mới
                             </a>

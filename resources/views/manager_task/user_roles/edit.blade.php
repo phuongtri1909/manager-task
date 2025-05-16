@@ -1,4 +1,4 @@
-@extends('layouts.partials.sidebar')
+@extends('manager_task.layouts.partials.sidebar')
 
 @section('title', 'Phân quyền người dùng')
 
@@ -83,7 +83,7 @@
                                         <div class="detail-item">
                                             <span class="text-muted">Quyền tạo task:</span>
                                             <span class="fw-bold">
-                                                @if($user->can_assign_job)
+                                                @if($user->can_assign_task)
                                                     <span class="text-success">Có</span>
                                                 @else
                                                     <span class="text-danger">Không</span>
@@ -228,9 +228,9 @@
                                 </div>
                                 <div class="option-card-body">
                                     <div class="form-check form-switch">
-                                        <input type="checkbox" class="form-check-input" id="can_assign_job" name="can_assign_job" value="1" 
-                                            {{ old('can_assign_job', $user->can_assign_job) ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="can_assign_job">Cho phép tạo và giao công việc</label>
+                                        <input type="checkbox" class="form-check-input" id="can_assign_task" name="can_assign_task" value="1" 
+                                            {{ old('can_assign_task', $user->can_assign_task) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="can_assign_task">Cho phép tạo và giao công việc</label>
                                     </div>
                                 </div>
                             </div>
@@ -253,7 +253,7 @@
                                         <div class="setting-item d-flex justify-content-between">
                                             <span class="setting-label">Quyền tạo task:</span>
                                             <span class="setting-value fw-bold" id="currentPermDisplay">
-                                                @if($user->can_assign_job)
+                                                @if($user->can_assign_task)
                                                     <span class="text-success">Có</span>
                                                 @else
                                                     <span class="text-danger">Không</span>
@@ -407,7 +407,7 @@
                 $('#department_id').prop('required', false);
                 $('.department-required').addClass('d-none');
                 $('.task-permission-section').show();
-                $('#can_assign_job').prop('disabled', false);
+                $('#can_assign_task').prop('disabled', false);
                 $('.staff-warning, .admin-info').addClass('d-none');
                 $('.task-permission-default').removeClass('d-none');
                 
@@ -426,7 +426,7 @@
                     $('#department_id').prop('required', false).val('');
                     $('.task-permission-default').addClass('d-none');
                     $('.admin-info').removeClass('d-none');
-                    $('#can_assign_job').prop('checked', true).prop('disabled', true);
+                    $('#can_assign_task').prop('checked', true).prop('disabled', true);
                     
                     // Update current display
                     $('#currentDeptDisplay').text('Không có');
@@ -464,7 +464,7 @@
                     $('.department-required').removeClass('d-none');
                     $('.task-permission-default').addClass('d-none');
                     $('.staff-warning').removeClass('d-none');
-                    $('#can_assign_job').prop('checked', false).prop('disabled', true);
+                    $('#can_assign_task').prop('checked', false).prop('disabled', true);
                     
                     // Update current display
                     updateDepartmentDisplay();
@@ -504,7 +504,7 @@
             
             // Helper to update task permission display
             function updateTaskPermissionDisplay() {
-                if ($('#can_assign_job').is(':checked')) {
+                if ($('#can_assign_task').is(':checked')) {
                     $('#currentPermDisplay').html('<span class="text-success">Có</span>');
                 } else {
                     $('#currentPermDisplay').html('<span class="text-danger">Không</span>');
@@ -521,7 +521,7 @@
             $('#department_id').change(updateDepartmentDisplay);
             
             // Run when task permission changes
-            $('#can_assign_job').change(updateTaskPermissionDisplay);
+            $('#can_assign_task').change(updateTaskPermissionDisplay);
             
             // Make sure staff cannot get task creation permissions
             $('#roleForm').on('submit', function() {
@@ -529,10 +529,10 @@
                 const slug = selectedOption.data('slug');
                 
                 if (slug === 'staff') {
-                    $('#can_assign_job').prop('checked', false);
+                    $('#can_assign_task').prop('checked', false);
                 }
                 if (slug === 'admin') {
-                    $('#can_assign_job').prop('checked', true);
+                    $('#can_assign_task').prop('checked', true);
                 }
             });
         });
