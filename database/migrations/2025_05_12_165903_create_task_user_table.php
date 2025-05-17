@@ -15,9 +15,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('task_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('status')->default('pending');
+            $table->string('status')->default('sending'); // sending, viewed, in_progress, completed, approval_rejected, approved, rejected
             $table->timestamp('viewed_at')->nullable();
             $table->timestamp('completion_date')->nullable();
+            $table->integer('approved_rejected')->default(0); // số lần duyệt hoặc từ chối
+            $table->text('approved_rejected_reason')->nullable(); // lý do duyệt hoặc từ chối
+            $table->foreignId('assigned_by')->nullable()->constrained('users');
+            $table->timestamp('assigned_at')->nullable();
             $table->foreignId('approved_by')->nullable()->constrained('users');
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();

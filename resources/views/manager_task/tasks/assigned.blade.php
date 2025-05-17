@@ -1,6 +1,6 @@
 @extends('manager_task.layouts.partials.sidebar')
 
-@section('title', 'Danh sách công việc')
+@section('title', 'Công việc đã giao')
 
 @section('main-content')
     <div class="category-container">
@@ -8,32 +8,24 @@
         <div class="content-breadcrumb">
             <ol class="breadcrumb-list">
                 <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-                <li class="breadcrumb-item current">Công việc</li>
+                <li class="breadcrumb-item current">Công việc đã giao</li>
             </ol>
         </div>
 
         <div class="content-card">
             <div class="card-top">
                 <div class="card-title">
-                    <i class="fas fa-tasks icon-title"></i>
-                    <h5>Danh sách công việc</h5>
+                    <i class="fas fa-paper-plane icon-title"></i>
+                    <h5>Công việc tôi đã giao</h5>
                 </div>
-                @if (
-                    !Auth::user()->isAdmin() &&
-                        Auth::user()->can_assign_task &&
-                        (Auth::user()->isDirector() ||
-                            Auth::user()->isDeputyDirector() ||
-                            Auth::user()->isDepartmentHead() ||
-                            Auth::user()->isDeputyDepartmentHead()))
-                    <a href="{{ route('tasks.create') }}" class="action-button">
-                        <i class="fas fa-plus-circle"></i> Tạo công việc mới
-                    </a>
-                @endif
+                <a href="{{ route('tasks.create') }}" class="action-button">
+                    <i class="fas fa-plus-circle"></i> Tạo công việc mới
+                </a>
             </div>
 
             <!-- Filter Section -->
             <div class="filter-section">
-                <form action="{{ route('tasks.index') }}" method="GET" class="filter-form">
+                <form action="{{ route('tasks.assigned') }}" method="GET" class="filter-form">
                     <div class="filter-group">
                         <div class="filter-item">
                             <label for="title_filter">Tiêu đề</label>
@@ -277,58 +269,9 @@
                 @endif
             </div>
         </div>
-
-        @if (Auth::user()->isAdmin() ||
-                Auth::user()->isDirector() ||
-                Auth::user()->isDeputyDirector() ||
-                Auth::user()->isDepartmentHead() ||
-                Auth::user()->isDeputyDepartmentHead())
-            <div class="text-end mt-4">
-                <a href="{{ route('tasks.statistics') }}" class="action-button">
-                    <i class="fas fa-chart-pie me-1"></i> Xem thống kê công việc
-                </a>
-            </div>
-        @endif
     </div>
 @endsection
 
 @push('scripts')
-    <script>
-        // Khi thay đổi bộ lọc trạng thái hoặc thời hạn, tự động submit form
-        document.getElementById('status_filter').addEventListener('change', function() {
-            document.querySelector('.filter-form').submit();
-        });
-
-        document.getElementById('overdue_filter').addEventListener('change', function() {
-            document.querySelector('.filter-form').submit();
-        });
-
-        // Confirm delete function with enhanced alert
-        function confirmDelete(event, form) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            // Use SweetAlert if available, otherwise fallback to confirm
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    title: 'Bạn có chắc chắn?',
-                    text: "Bạn không thể hoàn tác hành động này!",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Xóa',
-                    cancelButtonText: 'Hủy'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.submit();
-                    }
-                });
-            } else {
-                if (confirm('Bạn có chắc chắn muốn xóa công việc này?')) {
-                    form.submit();
-                }
-            }
-        }
-    </script>
+    <!-- Copy scripts từ index.blade.php -->
 @endpush

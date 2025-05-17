@@ -82,7 +82,19 @@ class CheckRole
             return $next($request);
         }
 
-        return redirect()->route('tasks.index')
-            ->with('error', 'Bạn không có quyền truy cập trang này.');
+        
+
+        return $this->redirectBasedOnRole($user, 'Bạn không có quyền truy cập trang này.');
+    }
+
+    protected function redirectBasedOnRole($user, $errorMessage = '')
+    {
+        if ($user->isAdmin()) {
+            return redirect()->route('tasks.index')->with('error', $errorMessage);
+        } elseif ($user->isDirector() || $user->isDeputyDirector() || $user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
+            return redirect()->route('tasks.managed')->with('error', $errorMessage);
+        } else {
+            return redirect()->route('tasks.received')->with('error', $errorMessage);
+        }
     }
 } 

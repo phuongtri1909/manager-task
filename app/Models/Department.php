@@ -54,6 +54,71 @@ class Department extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get unread tasks for the department
+     */
+    public function unreadTasks()
+    {
+        return $this->tasks()->wherePivotNull('viewed_at');
+    }
+
+    /**
+     * Get tasks with pending status
+     */
+    public function pendingTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_PENDING);
+    }
+
+    /**
+     * Get tasks with in-progress status
+     */
+    public function inProgressTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_IN_PROGRESS);
+    }
+
+    /**
+     * Get completed tasks
+     */
+    public function completedTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_COMPLETED);
+    }
+
+    /**
+     * Mark a task as viewed by this department
+     */
+    public function markTaskAsViewed(Task $task): void
+    {
+        $task->markAsViewedByDepartment($this);
+    }
+
+    /**
+     * Update task status for this department
+     */
+    public function updateTaskStatus(Task $task, string $status): void
+    {
+        $task->updateStatusForDepartment($this, $status);
+        
+        // Update status for all users in this department who are assigned to the task
+        foreach ($this->users as $user) {
+            if ($task->users()->where('user_id', $user->id)->exists()) {
+                $task->updateStatusForUser($user, $status);
+            }
+        }
+    }
+    
+    /**
+     * Get all users for a task from this department
+     */
+    public function getUsersForTask(Task $task)
+    {
+        return $this->users()->whereHas('tasks', function ($query) use ($task) {
+            $query->where('tasks.id', $task->id);
+        })->get();
+    }
+
     public function branchs()
     {
         return $this->belongsToMany(Branch::class, DepartmentBranch::class, 'department_id', 'branch_id');

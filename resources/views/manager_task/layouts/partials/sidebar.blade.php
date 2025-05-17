@@ -11,39 +11,82 @@
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="sidebar-user">
+            <div class="sidebar-user px-4">
                 <div class="user-info">
                     {{-- <img src="{{ asset('assets/images/user.png') }}" alt="User Avatar" class="user-avatar"> --}}
                     <div class="user-name">
                         {{ Auth::user()->name }}
                     </div>
                 </div>
-                <div class="user-role">
-                    @if (Auth::user()->isAdmin())
-                        <span class="badge bg-danger">Quản trị viên</span>
-                    @elseif (Auth::user()->isDirector())
-                        <span class="badge bg-primary">Giám đốc</span>
-                    @elseif (Auth::user()->isDeputyDirector())
-                        <span class="badge bg-success">Phó giám đốc</span>
-                    @elseif (Auth::user()->isDepartmentHead())
-                        <span class="badge bg-info">Trưởng phòng</span>
-                    @elseif (Auth::user()->isDeputyDepartmentHead())
-                        <span class="badge bg-warning">Phó trưởng phòng</span>
-                    @elseif (Auth::user()->isStaff())
-                        <span class="badge bg-secondary">Nhân viên</span>
-                    @endif
+                <div class="d-flex align-items-center">
+                    <div class="user-role">
+                        @if (Auth::user()->isAdmin())
+                            <span class="badge bg-danger">Quản trị viên</span>
+                        @elseif (Auth::user()->isDirector())
+                            <span class="badge bg-primary">Giám đốc</span>
+                        @elseif (Auth::user()->isDeputyDirector())
+                            <span class="badge bg-success">Phó giám đốc</span>
+                        @elseif (Auth::user()->isDepartmentHead())
+                            <span class="badge bg-info">Trưởng phòng</span>
+                        @elseif (Auth::user()->isDeputyDepartmentHead())
+                            <span class="badge bg-warning">Phó trưởng phòng</span>
+                        @elseif (Auth::user()->isStaff())
+                            <span class="badge bg-secondary">Nhân viên</span>
+                        @endif
+                    </div>
+                    <div>
+                        <span class="badge bg-light text-dark">
+                            {{ Auth::user()->department->name ?? 'Không có phòng ban' }}
+                        </span>
+                    </div>
                 </div>
             </div>
             <div class="sidebar-menu">
                 <ul>
-                    <li class="{{ Route::currentRouteNamed('tasks.index') ? 'active' : '' }}">
-                        <a href="{{ route('tasks.index') }}">
-                            <i class="fas fa-tasks"></i>
-                            <span>Danh sách công việc</span>
-                        </a>
-                    </li>
+                    @if (Auth::user()->isAdmin())
+                        <li class="{{ Route::currentRouteNamed('tasks.index') ? 'active' : '' }}">
+                            <a href="{{ route('tasks.index') }}">
+                                <i class="fas fa-tasks"></i>
+                                <span>Tổng quan công việc</span>
+                            </a>
+                        </li>
+                    @endif
 
-                    @if (Auth::user()->canAssignTasks() && Auth::user()->isDirector() || Auth::user()->isDeputyDirector() || Auth::user()->isDepartmentHead() || Auth::user()->isDeputyDepartmentHead())
+                    @if (Auth::user()->isDirector() ||
+                            Auth::user()->isDeputyDirector() ||
+                            Auth::user()->isDepartmentHead() ||
+                            Auth::user()->isDeputyDepartmentHead())
+                        <li class="{{ Route::currentRouteNamed('tasks.managed') ? 'active' : '' }}">
+                            <a href="{{ route('tasks.managed') }}">
+                                <i class="fas fa-tasks"></i>
+                                <span>Công việc quản lý</span>
+                            </a>
+                        </li>
+                    @endif
+
+                    @if (Auth::user()->canAssignTasks() && !Auth::user()->isAdmin())
+                        <li class="{{ Route::currentRouteNamed('tasks.assigned') ? 'active' : '' }}">
+                            <a href="{{ route('tasks.assigned') }}">
+                                <i class="fas fa-paper-plane"></i>
+                                <span>Công việc đã giao</span>
+                            </a>
+                        </li>
+                    @endif
+
+                    @if (!Auth::user()->isDirector() && !Auth::user()->isAdmin())
+                        <li class="{{ Route::currentRouteNamed('tasks.received') ? 'active' : '' }}">
+                            <a href="{{ route('tasks.received') }}">
+                                <i class="fas fa-inbox"></i>
+                                <span>Công việc được nhận</span>
+                            </a>
+                        </li>
+                    @endif
+
+                    @if (
+                        (Auth::user()->canAssignTasks() && Auth::user()->isDirector()) ||
+                            Auth::user()->isDeputyDirector() ||
+                            Auth::user()->isDepartmentHead() ||
+                            Auth::user()->isDeputyDepartmentHead())
                         <li class="{{ Route::currentRouteNamed('tasks.create') ? 'active' : '' }}">
                             <a href="{{ route('tasks.create') }}">
                                 <i class="fas fa-plus"></i>
@@ -100,7 +143,49 @@
             <div class="content-wrapper">
                 <div class="content-header">
                     <div class="container-fluid">
-                        <h1 class="page-title">@yield('title', 'Dashboard')</h1>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h1 class="page-title">@yield('title', 'Dashboard')</h1>
+                            <div class="d-flex align-items-center">
+                                <div>
+                                    <div class="user-info">
+                                        <div class="user-name">
+                                            {{ Auth::user()->name }}
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-role">
+                                            @if (Auth::user()->isAdmin())
+                                                <span class="badge bg-danger">Quản trị viên</span>
+                                            @elseif (Auth::user()->isDirector())
+                                                <span class="badge bg-primary">Giám đốc</span>
+                                            @elseif (Auth::user()->isDeputyDirector())
+                                                <span class="badge bg-success">Phó giám đốc</span>
+                                            @elseif (Auth::user()->isDepartmentHead())
+                                                <span class="badge bg-info">Trưởng phòng</span>
+                                            @elseif (Auth::user()->isDeputyDepartmentHead())
+                                                <span class="badge bg-warning">Phó trưởng phòng</span>
+                                            @elseif (Auth::user()->isStaff())
+                                                <span class="badge bg-secondary">Nhân viên</span>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-light text-dark">
+                                                {{ Auth::user()->department->name ?? 'Không có phòng ban' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="sidebar-header">
+                                    <img src="{{ asset('vendor/adminlte/dist/img/AdminLTELogo.png') }}" alt="logo"
+                                        height="70">
+                                    <span>Quản lý công việc</span>
+                                    <button id="close-sidebar" class="close-sidebar d-md-none">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="content">

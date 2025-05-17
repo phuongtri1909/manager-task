@@ -1,6 +1,6 @@
 @extends('manager_task.layouts.partials.sidebar')
 
-@section('title', 'Chi tiết nhiệm vụ')
+@section('title', 'Chi tiết công việc')
 
 @section('main-content')
 <div class="category-container">
@@ -8,7 +8,7 @@
     <div class="content-breadcrumb">
         <ol class="breadcrumb-list">
             <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Nhiệm vụ</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('tasks.index') }}">Công việc</a></li>
             <li class="breadcrumb-item current">Chi tiết</li>
         </ol>
     </div>
@@ -89,8 +89,8 @@
                                 <i class="fas fa-tag"></i>
                             </div>
                             <div class="task-meta-content">
-                                <div class="task-meta-label">Loại nhiệm vụ</div>
-                                <div class="task-meta-value">{{ $task->for_departments ? 'Nhiệm vụ phòng ban' : 'Nhiệm vụ cá nhân' }}</div>
+                                <div class="task-meta-label">Loại công việc</div>
+                                <div class="task-meta-value">{{ $task->for_departments ? 'Công việc phòng ban' : 'Công việc cá nhân' }}</div>
                             </div>
                         </div>
                     </div>
@@ -98,7 +98,7 @@
                     <div class="task-section animate-slide-up" style="--delay: 0.5s">
                         <div class="task-section-header">
                             <i class="fas fa-align-left"></i>
-                            <h6>Mô tả nhiệm vụ</h6>
+                            <h6>Mô tả công việc</h6>
                         </div>
                         <div class="task-section-content">
                             <div class="task-description">
@@ -1057,7 +1057,7 @@
                 }
             });
         } else {
-            if (confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) {
+            if (confirm('Bạn có chắc chắn muốn xóa công việc này?')) {
                 form.submit();
             }
         }

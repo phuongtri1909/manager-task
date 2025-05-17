@@ -82,6 +82,118 @@ class User extends Authenticatable
         return $this->hasMany(Task::class, 'created_by');
     }
 
+    /**
+     * Get tasks assigned to the user
+     */
+    public function assignedTasks()
+    {
+        return $this->tasks();
+    }
+
+    /**
+     * Get unread tasks for the user
+     */
+    public function unreadTasks()
+    {
+        return $this->tasks()->wherePivotNull('viewed_at');
+    }
+
+    /**
+     * Get tasks with pending status
+     */
+    public function pendingTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_PENDING);
+    }
+
+    /**
+     * Get tasks with in-progress status
+     */
+    public function inProgressTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_IN_PROGRESS);
+    }
+
+    /**
+     * Get completed tasks
+     */
+    public function completedTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_COMPLETED);
+    }
+
+    /**
+     * Get approved tasks
+     */
+    public function approvedTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_APPROVED);
+    }
+
+    /**
+     * Get rejected tasks
+     */
+    public function rejectedTasks()
+    {
+        return $this->tasks()->wherePivot('status', Task::STATUS_REJECTED);
+    }
+
+    /**
+     * Mark a task as viewed by this user
+     */
+    public function markTaskAsViewed(Task $task): void
+    {
+        $task->markAsViewedByUser($this);
+    }
+
+    /**
+     * Update task status for this user
+     */
+    public function updateTaskStatus(Task $task, string $status): void
+    {
+        $task->updateStatusForUser($this, $status);
+    }
+
+    /**
+     * Add a comment to a task
+     */
+    public function commentOnTask(Task $task, string $comment, ?string $statusUpdate = null): TaskComment
+    {
+        return $task->addComment($this, $comment, $statusUpdate);
+    }
+
+    /**
+     * Add a comment with attachments to a task
+     */
+    public function commentOnTaskWithAttachments(Task $task, string $comment, array $attachments, ?string $statusUpdate = null): TaskComment
+    {
+        return $task->addCommentWithAttachments($this, $comment, $attachments, $statusUpdate);
+    }
+
+    /**
+     * Update task status with a comment and optional attachments
+     */
+    public function updateTaskStatusWithComment(Task $task, string $status, string $comment, array $attachments = []): void
+    {
+        $task->updateStatusForUserWithComment($this, $status, $comment, $attachments);
+    }
+
+    /**
+     * Get task comments made by this user
+     */
+    public function taskComments(): HasMany
+    {
+        return $this->hasMany(TaskComment::class);
+    }
+
+    /**
+     * Get task attachments uploaded by this user
+     */
+    public function taskAttachments(): HasMany
+    {
+        return $this->hasMany(TaskAttachment::class, 'uploaded_by');
+    }
+
     public function taskExtensions(): HasMany
     {
         return $this->hasMany(TaskExtension::class);

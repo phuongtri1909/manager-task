@@ -57,7 +57,7 @@
                         <i class="fas fa-eye"></i>
                     </a>
                     
-                    @if(Auth::user()->id === $task->created_by || Auth::user()->isAdmin())
+                    @if(Auth::user()->isAdmin())
                         <a href="{{ route('tasks.edit', $task) }}" class="btn btn-sm btn-primary mb-1">
                             <i class="fas fa-edit"></i>
                         </a>

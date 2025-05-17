@@ -32,7 +32,36 @@
                     </div>
                 @endif
 
-                <form action="{{ route('tasks.store') }}" method="POST" class="task-form" id="task-form">
+                <!-- Role-based permissions info -->
+                @if(Auth::user()->isDirector() || Auth::user()->isDeputyDirector())
+                <div class="alert alert-info mb-4">
+                    <h6 class="mb-2"><i class="fas fa-info-circle"></i> Quyền hạn Giám đốc/Phó Giám đốc:</h6>
+                    <ul class="mb-0 pl-3">
+                        <li>Tạo và giao task cho tất cả các phòng</li>
+                        <li>Có thể chọn bao gồm hoặc không bao gồm trưởng/phó phòng</li>
+                        <li>Có thể chọn giao cho các cá nhân cấp dưới trong tất cả các phòng</li>
+                    </ul>
+                </div>
+                @elseif(Auth::user()->isDepartmentHead())
+                <div class="alert alert-info mb-4">
+                    <h6 class="mb-2"><i class="fas fa-info-circle"></i> Quyền hạn Trưởng phòng:</h6>
+                    <ul class="mb-0 pl-3">
+                        <li>Tạo và giao task cho phòng ban của mình</li>
+                        <li>Có thể chọn bao gồm hoặc không bao gồm phó phòng</li>
+                        <li>Có thể chọn giao cho các cá nhân trong phòng ban của mình</li>
+                    </ul>
+                </div>
+                @elseif(Auth::user()->isDeputyDepartmentHead())
+                <div class="alert alert-info mb-4">
+                    <h6 class="mb-2"><i class="fas fa-info-circle"></i> Quyền hạn Phó phòng:</h6>
+                    <ul class="mb-0 pl-3">
+                        <li>Tạo và giao task cho các nhân viên trong phòng ban của mình</li>
+                        <li>Không thể giao task cho toàn bộ phòng ban</li>
+                    </ul>
+                </div>
+                @endif
+                
+                <form action="{{ route('tasks.store') }}" method="POST" class="task-form" id="task-form" enctype="multipart/form-data">
                     @csrf
                     
                     <div class="form-tabs">
@@ -74,7 +103,31 @@
                                 @enderror
                             </div>
                         </div>
+                        
+                        <!-- File Attachments -->
+                        <div class="form-group">
+                            <label for="attachments" class="form-label-custom">
+                                Tệp đính kèm
+                            </label>
+                            <div class="custom-file-upload">
+                                <input type="file" class="file-input" id="attachments" name="attachments[]" multiple>
+                                <div class="file-upload-button">
+                                    <i class="fas fa-cloud-upload-alt"></i> Chọn tệp
+                                </div>
+                                <div class="file-upload-info">Hỗ trợ: .doc, .docx, .xlsx, .pdf, .mp4</div>
+                            </div>
+                            <div id="selected-files" class="mt-2"></div>
+                            <div class="error-message">
+                                @error('attachments')
+                                    {{ $message }}
+                                @enderror
+                                @error('attachments.*')
+                                    {{ $message }}
+                                @enderror
+                            </div>
+                        </div>
 
+                        @if(!Auth::user()->isDeputyDepartmentHead())
                         <div class="form-check-group">
                             <div class="custom-checkbox">
                                 <input type="checkbox" id="for_departments" name="for_departments" value="1" 
@@ -123,16 +176,53 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
                         
-                        <div id="user_section" class="{{ old('for_departments') ? 'd-none' : '' }}">
+                        <div id="user_section" class="{{ (old('for_departments') && !Auth::user()->isDeputyDepartmentHead()) ? 'd-none' : '' }}">
                             <div class="form-group">
                                 <label for="users" class="form-label-custom">
                                     Chọn người thực hiện <span class="required-mark">*</span>
                                 </label>
+                                
+                                <!-- Filtering options -->
+                                <div class="filter-options mb-2">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <select id="role_filter" class="custom-input">
+                                                <option value="">Tất cả vai trò</option>
+                                                @if(Auth::user()->isDirector() || Auth::user()->isDeputyDirector())
+                                                    <option value="deputy-director">Phó giám đốc</option>
+                                                    <option value="department-head">Trưởng phòng</option>
+                                                    <option value="deputy-department-head">Phó phòng</option>
+                                                    <option value="staff">Nhân viên</option>
+                                                @elseif(Auth::user()->isDepartmentHead())
+                                                    <option value="deputy-department-head">Phó phòng</option>
+                                                    <option value="staff">Nhân viên</option>
+                                                @elseif(Auth::user()->isDeputyDepartmentHead())
+                                                    <option value="staff">Nhân viên</option>
+                                                @endif
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <select id="department_filter" class="custom-input">
+                                                <option value="">Tất cả phòng ban</option>
+                                                @foreach($departments as $dept)
+                                                    <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <input type="text" id="name_filter" class="custom-input" placeholder="Tìm theo tên...">
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <select class="custom-input select2 {{ $errors->has('users') ? 'input-error' : '' }}" 
                                     id="users" name="users[]" multiple="multiple">
                                     @foreach($users as $user)
-                                        <option value="{{ $user->id }}" {{ (old('users') && in_array($user->id, old('users'))) ? 'selected' : '' }}>
+                                        <option value="{{ $user->id }}" {{ (old('users') && in_array($user->id, old('users'))) ? 'selected' : '' }}
+                                            data-role="{{ $user->role->slug ?? '' }}" 
+                                            data-department="{{ $user->department_id ?? '' }}">
                                             {{ $user->name }} ({{ $user->department->name ?? 'N/A' }})
                                         </option>
                                     @endforeach
@@ -191,6 +281,113 @@
         .select2-container--default .select2-results__option--highlighted[aria-selected] {
             background-color: var(--primary-color);
         }
+        
+        /* Filter options styling */
+        .filter-options {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .filter-options select,
+        .filter-options input {
+            height: 36px;
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .filter-options .row > div {
+            padding: 0 5px;
+        }
+        
+        .filter-options .row > div:first-child {
+            padding-left: 10px;
+        }
+        
+        .filter-options .row > div:last-child {
+            padding-right: 10px;
+        }
+        
+        /* File Upload Styles */
+        .custom-file-upload {
+            position: relative;
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            background-color: #f9f9f9;
+            transition: all 0.3s;
+        }
+        
+        .custom-file-upload:hover {
+            border-color: var(--primary-color);
+            background-color: #f0f7ff;
+        }
+        
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .file-upload-button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .file-upload-info {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .selected-file {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 8px;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .file-icon {
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+        
+        .file-name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .file-size {
+            color: #6c757d;
+            font-size: 0.85rem;
+            margin-left: 8px;
+        }
+        
+        .remove-file {
+            color: #dc3545;
+            cursor: pointer;
+            padding: 4px;
+        }
     </style>
 @endpush
 
@@ -198,12 +395,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     <script>
         $(document).ready(function() {
-            $('.select2').select2({
-                theme: 'bootstrap-5',
-                placeholder: 'Chọn...',
-                allowClear: true,
-                width: '100%'
-            });
+            // Initialize Select2
+            initializeSelect2();
             
             // Set minimum date for datetime-local input
             var now = new Date();
@@ -218,18 +411,249 @@
                 tomorrow.setMinutes(tomorrow.getMinutes() - tomorrow.getTimezoneOffset());
                 document.getElementById('deadline').value = tomorrow.toISOString().slice(0,16);
             }
+            
+            // User filtering functionality
+            $('#role_filter, #department_filter, #name_filter').on('change keyup', function() {
+                applyFilters();
+            });
+            
+            // Form submission handler with added validation
+            $('#task-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                // Get form values and validate
+                var forDepartments = $('#for_departments').is(':checked');
+                var title = $('#title').val().trim();
+                var deadline = $('#deadline').val().trim();
+                var isValid = true;
+                
+                // Clear previous error messages
+                $('.error-message').text('');
+                
+                // Validate title
+                if (!title) {
+                    $('#error-title').text('Tiêu đề là trường bắt buộc');
+                    isValid = false;
+                }
+                
+                // Validate deadline
+                if (!deadline) {
+                    $('#error-deadline').text('Thời hạn là trường bắt buộc');
+                    isValid = false;
+                }
+                
+                // Validate departments or users based on selection
+                if (forDepartments) {
+                    var departments = $('#departments').val();
+                    if (!departments || departments.length === 0) {
+                        $('#error-departments').text('Vui lòng chọn ít nhất một phòng ban');
+                        isValid = false;
+                    }
+                } else {
+                    var users = $('#users').val();
+                    if (!users || users.length === 0) {
+                        $('#error-users').text('Vui lòng chọn ít nhất một người thực hiện');
+                        isValid = false;
+                    }
+                }
+                
+                // If validation fails, stop submission
+                if (!isValid) {
+                    return false;
+                }
+                
+                // Instead of deleting fields and using XHR, just set the proper form action
+                if (!forDepartments) {
+                    // If assigning to individual users, disable the department-related fields
+                    $('#departments').prop('disabled', true);
+                    $('#include_department_heads').prop('disabled', true);
+                    $('#for_departments').prop('disabled', true);
+                } else {
+                    // If assigning to departments, disable the users field
+                    $('#users').prop('disabled', true);
+                }
+                
+                // Submit the form normally
+                this.submit();
+            });
+            
+            function initializeSelect2() {
+                $('.select2').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Chọn...',
+                    allowClear: true,
+                    width: '100%',
+                    templateResult: formatUser
+                });
+            }
+            
+            function formatUser(user) {
+                if (!user.id) {
+                    return user.text;
+                }
+                
+                var $option = $(user.element);
+                if ($option.hasClass('filtered-out')) {
+                    return null; // Don't show filtered out options
+                }
+                
+                return $('<span>' + user.text + '</span>');
+            }
+            
+            function applyFilters() {
+                var roleFilter = $('#role_filter').val();
+                var departmentFilter = $('#department_filter').val();
+                var nameFilter = $('#name_filter').val().toLowerCase();
+                
+                // Save current selections
+                var currentlySelected = $('#users').val() || [];
+                
+                // Remove previous filtering classes
+                $('#users option').removeClass('filtered-out');
+                
+                // Mark options that should be filtered out
+                $('#users option').each(function() {
+                    var $option = $(this);
+                    var userRole = $option.data('role');
+                    var userDepartment = $option.data('department');
+                    var userName = $option.text().toLowerCase();
+                    
+                    var matchesRole = roleFilter === '' || userRole === roleFilter;
+                    var matchesDepartment = departmentFilter === '' || userDepartment == departmentFilter;
+                    var matchesName = nameFilter === '' || userName.indexOf(nameFilter) > -1;
+                    
+                    // If it doesn't match filters and isn't selected, hide it
+                    if (!(matchesRole && matchesDepartment && matchesName) && 
+                        !currentlySelected.includes($option.val())) {
+                        $option.addClass('filtered-out');
+                    }
+                });
+                
+                // Refresh Select2 to apply changes
+                $('#users').select2('destroy');
+                initializeSelect2();
+                
+                // Restore selection
+                $('#users').val(currentlySelected).trigger('change');
+            }
+            
+            // Initial filter application
+            applyFilters();
+            
+            // Add change handlers to show/clear validation errors
+            $('#title').on('input', function() {
+                if ($(this).val().trim()) {
+                    $('#error-title').text('');
+                }
+            });
+            
+            $('#deadline').on('change', function() {
+                if ($(this).val().trim()) {
+                    $('#error-deadline').text('');
+                }
+            });
+            
+            $('#departments').on('change', function() {
+                if ($(this).val() && $(this).val().length > 0) {
+                    $('#error-departments').text('');
+                }
+            });
+            
+            $('#users').on('change', function() {
+                if ($(this).val() && $(this).val().length > 0) {
+                    $('#error-users').text('');
+                }
+            });
+            
+            // File upload handling
+            document.getElementById('attachments').addEventListener('change', function(e) {
+                const fileInput = e.target;
+                const selectedFilesDiv = document.getElementById('selected-files');
+                selectedFilesDiv.innerHTML = '';
+                
+                // File type validation
+                const allowedTypes = [
+                    'application/pdf',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/vnd.ms-excel',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'video/mp4'
+                ];
+                
+                // Display selected files
+                if (fileInput.files.length > 0) {
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        const file = fileInput.files[i];
+                        
+                        // Check file type
+                        if (!allowedTypes.includes(file.type)) {
+                            alert(`Loại tệp không được hỗ trợ: ${file.name}. Vui lòng chọn tệp .doc, .docx, .xlsx, .pdf hoặc .mp4`);
+                            continue;
+                        }
+                        
+                        // File icon based on type
+                        let fileIcon = 'fa-file';
+                        if (file.type === 'application/pdf') {
+                            fileIcon = 'fa-file-pdf';
+                        } else if (file.type.includes('word')) {
+                            fileIcon = 'fa-file-word';
+                        } else if (file.type.includes('excel') || file.type.includes('spreadsheet')) {
+                            fileIcon = 'fa-file-excel';
+                        } else if (file.type.includes('video')) {
+                            fileIcon = 'fa-file-video';
+                        }
+                        
+                        // Format file size
+                        const fileSize = (file.size / 1024).toFixed(2) + ' KB';
+                        
+                        // Create file element
+                        const fileElement = document.createElement('div');
+                        fileElement.className = 'selected-file';
+                        fileElement.innerHTML = `
+                            <div class="file-info">
+                                <i class="fas ${fileIcon} file-icon"></i>
+                                <span class="file-name">${file.name}</span>
+                                <span class="file-size">(${fileSize})</span>
+                            </div>
+                        `;
+                        
+                        selectedFilesDiv.appendChild(fileElement);
+                    }
+                }
+            });
         });
         
         function toggleTaskType() {
-            var forDepartments = document.getElementById('for_departments').checked;
+            var forDepartmentsElem = document.getElementById('for_departments');
             
-            if (forDepartments) {
-                document.getElementById('department_section').classList.remove('d-none');
-                document.getElementById('user_section').classList.add('d-none');
+            // Only proceed if the element exists (not for Deputy Department Heads)
+            if (forDepartmentsElem) {
+                var forDepartments = forDepartmentsElem.checked;
+                
+                if (forDepartments) {
+                    document.getElementById('department_section').classList.remove('d-none');
+                    document.getElementById('user_section').classList.add('d-none');
+                    // Clear any user selection errors when switching to department mode
+                    document.getElementById('error-users').textContent = '';
+                    // Enable department fields
+                    $('#departments').prop('disabled', false);
+                    $('#include_department_heads').prop('disabled', false);
+                } else {
+                    document.getElementById('department_section').classList.add('d-none');
+                    document.getElementById('user_section').classList.remove('d-none');
+                    // Clear any department selection errors when switching to user mode
+                    document.getElementById('error-departments').textContent = '';
+                    // Enable user fields
+                    $('#users').prop('disabled', false);
+                }
             } else {
-                document.getElementById('department_section').classList.add('d-none');
-                document.getElementById('user_section').classList.remove('d-none');
+                // For Deputy Department Heads, always show user section
+                var userSection = document.getElementById('user_section');
+                if (userSection) {
+                    userSection.classList.remove('d-none');
+                }
             }
         }
     </script>
-@endpush 
+@endpush

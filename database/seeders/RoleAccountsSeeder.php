@@ -10,95 +10,105 @@ use Illuminate\Support\Facades\Hash;
 
 class RoleAccountsSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
     public function run()
     {
         // Lấy tất cả vai trò
         $roles = Role::all();
-        
-        // Lấy phòng mặc định
-        $department = Department::first() ?? Department::create([
-            'name' => 'Phòng Test', 
-            'slug' => 'phong-test', 
-            'level' => 1,
-            'created_by' => 1
-        ]);
         
         // Mảng thông tin tài khoản cho các vai trò
         $accounts = [
             'admin' => [
                 'name' => 'Admin',
                 'email' => 'admin@example.com',
-                'password' => 'password123',
+                'password' => '11111111',
                 'can_assign_task' => true,
             ],
             'director' => [
                 'name' => 'Giám Đốc',
                 'email' => 'giamdoc@example.com',
-                'password' => 'password123',
+                'password' => '11111111',
                 'can_assign_task' => true,
             ],
             'deputy-director' => [
                 'name' => 'Phó Giám Đốc',
                 'email' => 'phogiamdoc@example.com',
-                'password' => 'password123',
+                'password' => '11111111',
                 'can_assign_task' => true,
             ],
             'department-head' => [
                 'name' => 'Trưởng Phòng',
                 'email' => 'truongphong@example.com',
-                'password' => 'password123',
+                'password' => '11111111',
                 'can_assign_task' => true,
             ],
             'deputy-department-head' => [
                 'name' => 'Phó Trưởng Phòng',
                 'email' => 'photruongphong@example.com',
-                'password' => 'password123',
+                'password' => '11111111',
                 'can_assign_task' => true,
             ],
             'staff' => [
                 'name' => 'Nhân Viên',
                 'email' => 'nhanvien@example.com',
-                'password' => 'password123',
+                'password' => '11111111',
                 'can_assign_task' => false,
             ],
         ];
+
+        // First create admin user
+        $adminRole = $roles->where('slug', 'admin')->first();
+        $adminInfo = $accounts['admin'];
         
+        $admin = User::firstOrCreate(
+            ['email' => $adminInfo['email']],
+            [
+                'name' => $adminInfo['name'],
+                'password' => Hash::make($adminInfo['password']),
+                'role_id' => $adminRole->id,
+                'can_assign_task' => $adminInfo['can_assign_task'],
+            ]
+        );
+
+        // Now create departments with admin as creator
+        $department = Department::firstOrCreate(
+            ['slug' => 'phong-test'],
+            [
+                'name' => 'Phòng Test', 
+                'level' => 1,
+                'created_by' => $admin->id
+            ]
+        );
+
+        $department2 = Department::firstOrCreate(
+            ['slug' => 'phong-test-2'],
+            [
+                'name' => 'Phòng Test 2', 
+                'level' => 1,
+                'created_by' => $admin->id
+            ]
+        );
+        
+        // Now create rest of the users
         foreach ($roles as $role) {
-            // Kiểm tra xem có thông tin tài khoản cho vai trò này không
+            if ($role->slug === 'admin') continue; // Skip admin as already created
+            
             if (isset($accounts[$role->slug])) {
                 $accountInfo = $accounts[$role->slug];
                 
-                // Kiểm tra xem email đã tồn tại chưa
-                $existingUser = User::where('email', $accountInfo['email'])->first();
-                
-                if (!$existingUser) {
-                    // Tạo tài khoản mới
-                    User::create([
+                $user = User::firstOrCreate(
+                    ['email' => $accountInfo['email']],
+                    [
                         'name' => $accountInfo['name'],
-                        'email' => $accountInfo['email'],
                         'password' => Hash::make($accountInfo['password']),
                         'role_id' => $role->id,
                         'department_id' => $department->id,
                         'can_assign_task' => $accountInfo['can_assign_task'],
-                    ]);
-                    
-                    $this->command->info("Tài khoản {$role->name} đã được tạo thành công!");
-                } else {
-                    // Cập nhật tài khoản đã tồn tại
-                    $existingUser->update([
-                        'role_id' => $role->id,
-                        'department_id' => $department->id,
-                        'can_assign_task' => $accountInfo['can_assign_task'],
-                    ]);
-                    
-                    $this->command->info("Tài khoản {$role->name} đã được cập nhật thành công!");
-                }
+                    ]
+                );
+                
+                $this->command->info("Tài khoản {$role->name} đã được " . 
+                    ($user->wasRecentlyCreated ? 'tạo' : 'cập nhật') . " thành công!");
             }
         }
     }
-} 
+}
