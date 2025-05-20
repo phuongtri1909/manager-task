@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TaskExtension extends Model
 {
-    use HasFactory, SoftDeletes, UseAuth;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'task_id',

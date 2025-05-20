@@ -9,11 +9,15 @@ use App\Models\TaskUser;
 use App\Models\Department;
 use Illuminate\Http\Request;
 use App\Models\TaskDepartment;
+use App\Models\TaskUserAttachment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Traits\RoleBasedRedirects;
+use Illuminate\Support\Facades\Log;
 
 class TaskController extends Controller
 {
+    use RoleBasedRedirects;
     public function __construct()
     {
         $this->middleware('auth');
@@ -25,44 +29,42 @@ class TaskController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        return $this->redirectBasedOnRole($user);
+    }
 
-        // Only admin has access to this view
-        if (!$user->isAdmin()) {
-            if ($user->isDirector() || $user->isDeputyDirector()) {
-                return redirect()->route('tasks.managed');
-            } elseif ($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
-                return redirect()->route('tasks.managed');
-            } else {
-                return redirect()->route('tasks.received');
-            }
-        }
+    public function indexAdmin(Request $request)
+    {
+        $user = Auth::user();
 
         // Admin can see all tasks
-        $tasks = Task::with('creator', 'departments', 'users');
-        
+        $tasks = Task::with('creator', 'creator.role', 'departments', 'users');
+
         // Apply filters
         if ($request->filled('title')) {
             $tasks->where('title', 'like', '%' . $request->title . '%');
         }
 
-        if ($request->filled('status')) {
-            $tasks->where('status', $request->status);
+        if ($request->filled('department_id')) {
+            $departmentId = $request->department_id;
+            $tasks->whereHas('departments', function ($q) use ($departmentId) {
+                $q->where('departments.id', $departmentId);
+            });
+        }
+
+        if ($request->filled('creator_role')) {
+            $roleId = $request->creator_role;
+            $tasks->whereHas('creator', function ($q) use ($roleId) {
+                $q->where('role_id', $roleId);
+            });
         }
 
         if ($request->filled('overdue')) {
             $now = now();
             if ($request->overdue == '1') {
-                // Overdue tasks (deadline < now and not completed)
-                $tasks->where('deadline', '<', $now)
-                    ->where(function ($query) {
-                        $query->where('status', '!=', 'completed')
-                            ->orWhereNull('status');
-                    });
+                $tasks->where('deadline', '<', $now);
             } else {
-                // Not overdue tasks (deadline >= now OR completed)
                 $tasks->where(function ($query) use ($now) {
-                    $query->where('deadline', '>=', $now)
-                        ->orWhere('status', 'completed');
+                    $query->where('deadline', '>=', $now);
                 });
             }
         }
@@ -70,7 +72,10 @@ class TaskController extends Controller
         // Get paginated results
         $tasks = $tasks->latest()->paginate(10);
 
-        return view('manager_task.tasks.index', compact('tasks'));
+        $departments = Department::all();
+        $roles = Role::orderBy('level', 'desc')->get();
+
+        return view('manager_task.tasks.index', compact('tasks', 'departments', 'roles'));
     }
 
     /**
@@ -82,73 +87,115 @@ class TaskController extends Controller
 
         // Check if user has appropriate role
         if (!($user->isDirector() || $user->isDeputyDirector() || $user->isDepartmentHead() || $user->isDeputyDepartmentHead())) {
-            return redirect()->route('tasks.received')->with('error', 'Bạn không có quyền xem mục này!');
+            return $this->redirectBasedOnRole($user, 'Bạn không có quyền xem mục này!');
         }
 
         $query = Task::query();
+        $departments = collect();
+        $roles = collect();
 
-        // For Director and Deputy Director, show all management tasks
+        // For Director and Deputy Director - view tasks from all managers
         if ($user->isDirector() || $user->isDeputyDirector()) {
             // Get management role IDs (Director, Deputy Director, Department Head, Deputy Department Head)
             $managerRoleIds = Role::whereIn('slug', [
-                'director', 'deputy-director', 'department-head', 'deputy-department-head'
+                'director',
+                'deputy-director',
+                'department-head',
+                'deputy-department-head'
             ])->pluck('id');
-            
-            // Get users with management roles
-            $managerIds = User::whereIn('role_id', $managerRoleIds)->pluck('id');
-            
-            // Get tasks created by or assigned to these managers
-            $query->where(function($q) use ($managerIds) {
-                $q->whereIn('created_by', $managerIds)
-                  ->orWhereHas('users', function($subquery) use ($managerIds) {
-                      $subquery->whereIn('users.id', $managerIds);
-                  });
+
+            // Add role filter options for management roles only
+            $roles = Role::whereIn('slug', [
+                'director',
+                'deputy-director',
+                'department-head',
+                'deputy-department-head'
+            ])->orderBy('level', 'desc')->get();
+
+            // Get all departments for filtering
+            $departments = Department::orderBy('name')->get();
+
+            // Base query - tasks created by managers
+            $query->whereIn('created_by', function ($q) use ($managerRoleIds) {
+                $q->select('id')->from('users')->whereIn('role_id', $managerRoleIds);
             });
-        } 
-        // For Department Heads and Deputy Department Heads, show only tasks for their department
+
+            // Apply creator role filter
+            if ($request->filled('creator_role')) {
+                $roleId = $request->creator_role;
+                $query->whereHas('creator', function ($q) use ($roleId) {
+                    $q->where('role_id', $roleId);
+                });
+            }
+
+            // Apply department filter
+            if ($request->filled('department_id')) {
+                $departmentId = $request->department_id;
+                $query->where(function ($q) use ($departmentId) {
+                    $q->whereHas('departments', function ($subquery) use ($departmentId) {
+                        $subquery->where('departments.id', $departmentId);
+                    })
+                        ->orWhereHas('users', function ($subquery) use ($departmentId) {
+                            $subquery->where('users.department_id', $departmentId);
+                        });
+                });
+            }
+        }
+        // For Department Heads and Deputy Department Heads - only their own department
         else if ($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
             $departmentId = $user->department_id;
-            
-            // Tasks where department is assigned
-            $query->where(function($q) use ($departmentId) {
-                // Tasks assigned to the department
-                $q->whereHas('departments', function($subquery) use ($departmentId) {
+
+            // Only their department for filtering
+            $departments = Department::where('id', $departmentId)->get();
+
+            // Role options for filtering - only department head and deputy
+            $roles = Role::whereIn('slug', ['department-head', 'deputy-department-head'])
+                ->orderBy('level', 'desc')
+                ->get();
+
+            // Get tasks where:
+            // 1. Tasks assigned to the department OR
+            // 2. Tasks assigned to users from the department
+            $query->where(function ($q) use ($departmentId) {
+                $q->whereHas('departments', function ($subquery) use ($departmentId) {
                     $subquery->where('departments.id', $departmentId);
                 })
-                // Or tasks where users from the department are assigned
-                ->orWhereHas('users', function($subquery) use ($departmentId) {
-                    $subquery->where('users.department_id', $departmentId);
-                });
+                    ->orWhereHas('users', function ($subquery) use ($departmentId) {
+                        $subquery->where('users.department_id', $departmentId);
+                    });
             });
+
+            // Apply creator role filter - only within their department
+            if ($request->filled('creator_role')) {
+                $roleId = $request->creator_role;
+                $query->whereHas('creator', function ($q) use ($roleId, $departmentId) {
+                    $q->where('role_id', $roleId)
+                        ->where('department_id', $departmentId);
+                });
+            }
         }
 
-        // Apply filters
+        // Apply common filters
         if ($request->filled('title')) {
             $query->where('title', 'like', '%' . $request->title . '%');
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
         }
 
         if ($request->filled('overdue')) {
             $now = now();
             if ($request->overdue == '1') {
-                $query->where('deadline', '<', $now)
-                    ->where('status', '!=', 'completed');
+                $query->where('deadline', '<', $now);
             } else {
-                $query->where(function($q) use ($now) {
-                    $q->where('deadline', '>=', $now)
-                      ->orWhere('status', 'completed');
+                $query->where(function ($q) use ($now) {
+                    $q->where('deadline', '>=', $now);
                 });
             }
         }
 
-        $tasks = $query->with(['creator', 'departments', 'users', 'attachments'])
+        $tasks = $query->with(['creator', 'creator.role', 'departments', 'users', 'attachments'])
             ->latest()
             ->paginate(10);
 
-        return view('manager_task.tasks.managed', compact('tasks'));
+        return view('manager_task.tasks.managed', compact('tasks', 'departments', 'roles'));
     }
 
     /**
@@ -158,7 +205,6 @@ class TaskController extends Controller
     {
         $user = Auth::user();
 
-        // Only users who can assign tasks can see this view
         if (!$user->canAssignTasks()) {
             return redirect()->route('tasks.received')
                 ->with('error', 'Bạn không có quyền xem mục này!');
@@ -166,59 +212,82 @@ class TaskController extends Controller
 
         $query = Task::where('created_by', $user->id);
 
-        // Apply filters
+        if ($user->isDirector() || $user->isDeputyDirector()) {
+            $departments = Department::orderBy('name')->get();
+        } elseif ($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
+            $departments = Department::where('id', $user->department_id)->get();
+        } else {
+            $departments = collect();
+        }
+
         if ($request->filled('title')) {
             $query->where('title', 'like', '%' . $request->title . '%');
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        if ($request->filled('department_id')) {
+            $departmentId = $request->department_id;
+            $query->whereHas('departments', function ($q) use ($departmentId) {
+                $q->where('departments.id', $departmentId);
+            });
         }
 
         if ($request->filled('overdue')) {
             $now = now();
             if ($request->overdue == '1') {
                 $query->where('deadline', '<', $now)
-                    ->where('status', '!=', 'completed');
+                    ->where(function ($q) {
+                        $q->whereDoesntHave('users', function ($subq) {
+                            $subq->where('task_user.status', 'completed');
+                        })
+                            ->orWhereHas('users', function ($subq) {
+                                $subq->where('task_user.status', '!=', 'completed');
+                            });
+                    });
             } else {
-                $query->where(function($q) use ($now) {
+                $query->where(function ($q) use ($now) {
                     $q->where('deadline', '>=', $now)
-                      ->orWhere('status', 'completed');
+                        ->orWhereHas('users', function ($subq) {
+                            $subq->where('task_user.status', 'completed');
+                        });
                 });
             }
         }
 
-        $tasks = $query->with(['departments', 'users', 'attachments'])
+        $tasks = $query->with(['creator', 'departments', 'users', 'attachments'])
             ->latest()
             ->paginate(10);
 
-        return view('manager_task.tasks.assigned', compact('tasks'));
+        return view('manager_task.tasks.assigned', compact('tasks', 'departments'));
     }
 
     /**
-     * Display tasks assigned to the current user
+     * Display tasks assigned to the current user (received tasks)
      */
     public function receivedTasks(Request $request)
     {
         $user = Auth::user();
-
-        // Giám đốc không có task được nhận
-        if ($user->isDirector()) {
-            return redirect()->route('tasks.managed')
-                ->with('error', 'Giám đốc không có mục công việc được nhận!');
-        }
-
         $query = Task::query();
-        
-        // Get tasks where the current user is directly assigned
-        $query->whereHas('users', function($q) use ($user) {
+
+        // 1. Tasks where the current user is directly assigned as an individual
+        $query->whereHas('users', function ($q) use ($user) {
             $q->where('users.id', $user->id);
         });
-        
-        // Or tasks assigned to their department 
-        // (for staff members, only when specifically assigned to them)
-        if (!$user->isStaff()) {
-            $query->orWhereHas('departments', function($q) use ($user) {
+
+        // 2. For department heads and deputy heads, we need to respect the include_department_heads flag
+        if ($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
+            $query->orWhere(function ($q) use ($user) {
+                // Only include department tasks where:
+                // - The task is assigned to their department AND
+                // - The include_department_heads flag is TRUE
+                $q->whereHas('departments', function ($subq) use ($user) {
+                    $subq->where('departments.id', $user->department_id)
+                        ->where('task_departments.include_department_heads', true);
+                });
+            });
+        }
+        // 3. For non-department heads with a department, include department tasks
+        elseif ($user->department_id && !$user->isStaff()) {
+            $query->orWhereHas('departments', function ($q) use ($user) {
                 $q->where('departments.id', $user->department_id);
             });
         }
@@ -228,40 +297,69 @@ class TaskController extends Controller
             $query->where('title', 'like', '%' . $request->title . '%');
         }
 
+        // Filter by task status in the pivot table
         if ($request->filled('status')) {
-            // For tasks assigned to users directly, filter by the pivot table status
-            if ($request->status) {
-                $query->whereHas('users', function($q) use ($user, $request) {
-                    $q->where('users.id', $user->id)
-                      ->where('task_user.status', $request->status);
-                });
+            $status = $request->status;
+            $query->whereHas('users', function ($q) use ($user, $status) {
+                $q->where('users.id', $user->id)
+                    ->where('task_user.status', $status);
+            });
+        }
+
+        // Filter by task type (department or individual)
+        if ($request->filled('task_type')) {
+            $type = $request->task_type;
+            if ($type === 'department') {
+                $query->where('for_departments', true);
+            } else if ($type === 'individual') {
+                $query->where('for_departments', false);
             }
         }
 
+        // Filter by overdue status
         if ($request->filled('overdue')) {
             $now = now();
             if ($request->overdue == '1') {
                 $query->where('deadline', '<', $now)
-                    ->whereHas('users', function($q) use ($user) {
+                    ->whereHas('users', function ($q) use ($user) {
                         $q->where('users.id', $user->id)
-                          ->where('task_user.status', '!=', 'completed');
+                            ->whereNotIn('task_user.status', ['completed', 'approved']);
                     });
             } else {
-                $query->where(function($q) use ($now, $user) {
+                $query->where(function ($q) use ($now, $user) {
                     $q->where('deadline', '>=', $now)
-                      ->orWhereHas('users', function($subq) use ($user) {
-                          $subq->where('users.id', $user->id)
-                               ->where('task_user.status', 'completed');
-                      });
+                        ->orWhereHas('users', function ($subq) use ($user) {
+                            $subq->where('users.id', $user->id)
+                                ->whereIn('task_user.status', ['completed', 'approved']);
+                        });
                 });
             }
         }
 
-        $tasks = $query->with(['creator', 'departments', 'users', 'attachments'])
+        // Get tasks with eager loading
+        $tasks = $query->with([
+            'creator',
+            'departments',
+            'attachments',
+            'users' => function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            }
+        ])
             ->latest()
             ->paginate(10);
 
-        return view('manager_task.tasks.received', compact('tasks'));
+        // Status options for filter dropdown
+        $statusOptions = [
+            'sending' => 'Chưa xem',
+            'viewed' => 'Đã xem',
+            'in_progress' => 'Đang thực hiện',
+            'completed' => 'Hoàn thành',
+            'approved' => 'Đã phê duyệt',
+            'approval_rejected' => 'Từ chối kết quả',
+            'rejected' => 'Đã hủy'
+        ];
+
+        return view('manager_task.tasks.received', compact('tasks', 'statusOptions'));
     }
 
     /**
@@ -491,9 +589,41 @@ class TaskController extends Controller
     /**
      * Display the specified resource.
      */
+
     public function show(Task $task)
     {
         $user = Auth::user();
+        $userDepartmentId = $user->department_id;
+
+        // Xác định quyền của người dùng
+        $canSeeAllDetails = $user->isAdmin() || $user->isDirector() || $user->isDeputyDirector();
+
+        $isManager = $user->isDepartmentHead() || $user->isDeputyDepartmentHead();
+
+        $isStaff = $user->isStaff();
+
+        $isTaskCreator = $task->created_by === $user->id;
+
+        $canEdit = $user->isAdmin() || $isTaskCreator;
+
+        // Kiểm tra quyền truy cập
+        $hasAccess = false;
+
+        if ($canSeeAllDetails) {
+            $hasAccess = true;
+        } elseif ($isTaskCreator) {
+            $hasAccess = true;
+        } elseif ($task->users()->where('users.id', $user->id)->exists()) {
+            $hasAccess = true;
+        } elseif ($isManager && $task->departments()->where('departments.id', $userDepartmentId)->exists()) {
+            $hasAccess = true;
+        }
+
+        // If no access, redirect with error
+        if (!$hasAccess) {
+            return redirect()->back()
+                ->with('error', 'Bạn không có quyền xem công việc này!');
+        }
 
         // Mark as viewed if the current user is assigned to this task
         if (
@@ -501,14 +631,131 @@ class TaskController extends Controller
             is_null($task->users()->where('users.id', $user->id)->first()->pivot->viewed_at)
         ) {
             $task->users()->updateExistingPivot($user->id, [
-                'viewed_at' => now()
+                'viewed_at' => now(),
+                'status' => TaskUser::STATUS_VIEWED,
             ]);
         }
 
-        $canEdit = $user->isAdmin() || $task->created_by === $user->id;
         $canUpdateStatus = $task->users()->where('users.id', $user->id)->exists();
+        $taskUserAttachments = [];
+        $currentCompletionAttempts = [];
+        // Load relationships based on permissions
+        if ($canSeeAllDetails || $isTaskCreator) {
+            // Load all data for admins, directors, and task creators
+            $task->load([
+                'creator',
+                'departments',
+                'users',
+                'users.department',
+                'users.role',
+                'attachments',
+                'extensions'
+            ]);
 
-        return view('manager_task.tasks.show', compact('task', 'canEdit', 'canUpdateStatus'));
+            foreach ($task->users as $taskUser) {
+                $pivotId = $taskUser->pivot->task_id;
+                $currentAttempt = $taskUser->pivot->completion_attempt ?? 0;
+                $currentCompletionAttempts[$pivotId] = $currentAttempt;
+
+                // Lấy tất cả file đính kèm của task_user này
+                $attachments = TaskUserAttachment::where('task_user_id', $pivotId)
+                    ->where('is_active', true)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+                if ($attachments->count() > 0) {
+                    $taskUserAttachments[$pivotId] = $attachments;
+                }
+            }
+        } elseif ($isManager) {
+            // Department heads only see users from their department
+            $task->load([
+                'creator',
+                'departments',
+                'attachments',
+                'users' => function ($query) use ($userDepartmentId) {
+                    $query->where('users.department_id', $userDepartmentId);
+                },
+                'users.department',
+                'users.role',
+                'extensions' => function ($query) use ($userDepartmentId, $user) {
+                    $query->where(function ($q) use ($userDepartmentId, $user) {
+                        $q->whereHas('user', function ($userQuery) use ($userDepartmentId) {
+                            $userQuery->where('department_id', $userDepartmentId);
+                        })
+                            ->orWhere('user_id', $user->id);
+                    });
+                }
+            ]);
+
+            foreach ($task->users as $taskUser) {
+                if ($taskUser->department_id == $userDepartmentId) {
+                    $pivotId = $taskUser->pivot->task_id;
+
+
+                    $currentAttempt = $taskUser->pivot->completion_attempt ?? 0;
+                    $currentCompletionAttempts[$pivotId] = $currentAttempt;
+
+                    $attachments = TaskUserAttachment::where('task_user_id', $pivotId)
+                        ->where('is_active', true)
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+
+                    if ($attachments->count() > 0) {
+                        $taskUserAttachments[$pivotId] = $attachments;
+                    }
+                }
+            }
+        } else {
+            // Staff only see their own data
+            $task->load([
+                'creator',
+                'departments',
+                'attachments',
+                'users' => function ($query) use ($user) {
+                    $query->where('users.id', $user->id);
+                },
+                'users.department',
+                'users.role',
+                'extensions' => function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                }
+            ]);
+
+            if ($task->users->count() > 0) {
+                foreach ($task->users as $taskUser) {
+                    if ($taskUser->id == $user->id) {
+                        $pivotId = $taskUser->pivot->task_id;
+                        $currentAttempt = $taskUser->pivot->completion_attempt ?? 0;
+                        $currentCompletionAttempts[$pivotId] = $currentAttempt;
+
+                        $attachments = TaskUserAttachment::where('task_user_id', $pivotId)
+                            ->where('is_active', true)
+                            ->orderBy('created_at', 'desc')
+                            ->get();
+
+
+
+                        if ($attachments->count() > 0) {
+                            $taskUserAttachments[$pivotId] = $attachments;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return view('manager_task.tasks.show', compact(
+            'task',
+            'canUpdateStatus',
+            'canSeeAllDetails',
+            'isManager',
+            'isStaff',
+            'userDepartmentId',
+            'canEdit',
+            'taskUserAttachments',
+            'currentCompletionAttempts'
+        ));
     }
 
     /**
@@ -665,6 +912,255 @@ class TaskController extends Controller
         return redirect()->route('tasks.index')->with('success', 'Công việc đã được xóa thành công!');
     }
 
+    public function pendingApproval(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user->canAssignTasks()) {
+            return redirect()->route('tasks.received')
+                ->with('error', 'Bạn không có quyền xem mục này!');
+        }
+
+        $query = DB::table('task_user')
+            ->join('tasks', 'task_user.task_id', '=', 'tasks.id')
+            ->join('users', 'task_user.user_id', '=', 'users.id')
+            ->leftJoin('departments', 'users.department_id', '=', 'departments.id')
+            ->select(
+                'task_user.*',
+                'task_user.id as task_user_id',
+                'task_user.completion_attempt',
+                'tasks.title',
+                'tasks.description',
+                'tasks.deadline',
+                'users.id as user_id',
+                'users.name as user_name',
+                'departments.name as department_name'
+            )
+            ->where('tasks.created_by', $user->id)
+            ->where('task_user.status', 'completed')
+            ->whereNull('task_user.approved_at');
+
+        // Áp dụng các filter nếu có
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('tasks.title', 'like', "%{$search}%")
+                    ->orWhere('users.name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('department_id')) {
+            $query->where('users.department_id', $request->department_id);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->where('task_user.completion_date', '>=', $request->date_from . ' 00:00:00');
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('task_user.completion_date', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        // Sắp xếp và phân trang
+        $pendingTasks = $query->orderBy('task_user.completion_date', 'desc')
+            ->paginate(15);
+
+
+        $taskUserIds = $pendingTasks->pluck('task_user_id')->toArray();
+        $taskUserAttachments = [];
+        $taskUserAttemptsMap = [];
+
+        foreach ($pendingTasks as $task) {
+            $taskUserAttemptsMap[$task->task_user_id] = $task->completion_attempt ?? 0;
+        }
+
+        if (!empty($taskUserIds)) {
+            // Lấy tất cả file đính kèm cho các task_user
+            $attachments = TaskUserAttachment::whereIn('task_user_id', $taskUserIds)
+                ->where('is_active', true)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Nhóm file đính kèm theo task_user_id và lọc theo completion_attempt hiện tại
+            foreach ($attachments as $attachment) {
+                $taskUserId = $attachment->task_user_id;
+                $currentAttempt = $taskUserAttemptsMap[$taskUserId] ?? 0;
+
+                // Chỉ lấy file đính kèm của lần gửi duyệt hiện tại
+                if ($attachment->completion_attempt == $currentAttempt) {
+                    $taskUserAttachments[$taskUserId][] = $attachment;
+                }
+            }
+        }
+
+        // Lấy danh sách các phòng ban cho filter
+        if ($user->isDirector() || $user->isDeputyDirector()) {
+            $departments = Department::orderBy('name')->get();
+        } else {
+            $departments = Department::where('id', $user->department_id)->get();
+        }
+
+        return view('manager_task.tasks.pending_approval', compact(
+            'pendingTasks',
+            'departments',
+            'taskUserAttachments',
+            'taskUserAttemptsMap'
+        ));
+    }
+
+    public function approveStatus(Request $request, Task $task, $assigneeId)
+    {
+        $user = Auth::user();
+
+        if ($task->created_by !== $user->id && !$user->isAdmin()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có quyền phê duyệt hoặc từ chối kết quả công việc này!'
+                ], 403);
+            }
+
+            return redirect()->route('tasks.show', $task)
+                ->with('error', 'Bạn không có quyền phê duyệt hoặc từ chối kết quả công việc này!');
+        }
+
+        $taskUser = TaskUser::where('task_id', $task->id)
+            ->where('user_id', $assigneeId)
+            ->first();
+
+        if (!$taskUser) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy thông tin phân công!'
+                ], 404);
+            }
+
+            return redirect()->route('tasks.show', $task)
+                ->with('error', 'Không tìm thấy thông tin phân công!');
+        }
+
+        // Validate status and rejection reason
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'status' => 'required|in:' .
+                TaskUser::STATUS_APPROVED . ',' .
+                TaskUser::STATUS_APPROVAL_REJECTED . ',' .
+                TaskUser::STATUS_REJECTED,
+            'rejection_reason' => 'required_if:status,' . TaskUser::STATUS_APPROVAL_REJECTED . ',' . TaskUser::STATUS_REJECTED,
+        ], [
+            'status.required' => 'Trạng thái là bắt buộc',
+            'status.in' => 'Trạng thái không hợp lệ',
+            'rejection_reason.required_if' => 'Lý do từ chối là bắt buộc khi từ chối kết quả',
+        ]);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $validated = $validator->validated();
+
+        // Update the status
+        $updateData = [
+            'status' => $validated['status'],
+        ];
+
+        $updateData['approved_rejected'] = $taskUser->approved_rejected ?? 0;
+
+        // Handle rejection reason for approval_rejected or rejected status
+        if (in_array($validated['status'], [TaskUser::STATUS_APPROVAL_REJECTED, TaskUser::STATUS_REJECTED])) {
+            // Lấy dữ liệu từ chối hiện tại (nếu có)
+            $currentReasonData = json_decode($taskUser->approved_rejected_reason, true) ?: [];
+            $history = isset($currentReasonData['history']) ? $currentReasonData['history'] : [];
+
+            // Tạo mục từ chối mới
+            $newRejection = [
+                'message' => $request->input('rejection_reason'),
+                'rejected_at' => now()->format('Y-m-d H:i:s'),
+                'rejected_by' => $user->name
+            ];
+
+            // Thêm vào lịch sử
+            $history[] = $newRejection;
+
+            // Tăng bộ đếm số lần từ chối
+            $updateData['approved_rejected'] = ($taskUser->approved_rejected ?? 0) + 1;
+
+            // Lưu lịch sử từ chối vào JSON
+            $updateData['approved_rejected_reason'] = json_encode([
+                'message' => $request->input('rejection_reason'), // Lý do hiện tại
+                'history' => $history // Tất cả lịch sử
+            ]);
+        } else {
+            $updateData = [
+                'status' => $validated['status'],
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+            ];
+        }
+
+        $taskUser->update($updateData);
+
+        $messages = [
+            TaskUser::STATUS_APPROVED => 'Kết quả công việc đã được phê duyệt!',
+            TaskUser::STATUS_APPROVAL_REJECTED => 'Đã từ chối kết quả công việc và yêu cầu thực hiện lại! (Lần thứ ' .  $taskUser->approved_rejected . ')',
+            TaskUser::STATUS_REJECTED => 'Công việc đã bị hủy!'
+        ];
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $messages[$validated['status']],
+                'data' => [
+                    'status' => $validated['status'],
+                    'approved_at' => now()->format('d/m/Y H:i'),
+                    'approved_by' => $user->name
+                ]
+            ]);
+        }
+
+        return redirect()->route('tasks.show', $task)
+            ->with('success', $messages[$validated['status']]);
+    }
+
+    public function getRejectionHistory(Task $task, $userId)
+    {
+        $user = Auth::user();
+
+        // Kiểm tra quyền truy cập
+        if ($task->created_by != $user->id && !$user->isAdmin()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $taskUser = TaskUser::where('task_id', $task->id)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$taskUser) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        // Parse rejection reason (JSON)
+        $rejectionData = [];
+        if ($taskUser->approved_rejected_reason) {
+            try {
+                $rejectionData = json_decode($taskUser->approved_rejected_reason, true) ?? [];
+            } catch (\Exception $e) {
+                $rejectionData = ['message' => $taskUser->approved_rejected_reason];
+            }
+        }
+
+        return response()->json($rejectionData);
+    }
+
     /**
      * Update task status by assignee
      */
@@ -672,20 +1168,212 @@ class TaskController extends Controller
     {
         $user = Auth::user();
 
+        // Kiểm tra quyền
         if (!$task->users()->where('users.id', $user->id)->exists()) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không được phân công công việc này!'
+                ], 403);
+            }
             return redirect()->route('tasks.show', $task)->with('error', 'Bạn không được phân công công việc này!');
         }
 
-        $validated = $request->validate([
-            'status' => 'required|in:pending,in_progress,completed',
-        ]);
+        $taskUser = $task->users()->where('users.id', $user->id)->first()->pivot;
 
-        $task->users()->updateExistingPivot($user->id, [
-            'status' => $validated['status'],
-            'completion_date' => $validated['status'] === 'completed' ? now() : null,
-        ]);
+        // Kiểm tra trạng thái hiện tại
+        if (
+            in_array($taskUser->status, [TaskUser::STATUS_APPROVED, TaskUser::STATUS_REJECTED]) &&
+            $taskUser->status !== TaskUser::STATUS_APPROVAL_REJECTED
+        ) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không thể cập nhật trạng thái khi công việc đã được phê duyệt hoặc từ chối!'
+                ], 403);
+            }
+            return redirect()->route('tasks.show', $task)
+                ->with('error', 'Không thể cập nhật trạng thái khi công việc đã được phê duyệt hoặc từ chối!');
+        }
 
-        return redirect()->route('tasks.show', $task)->with('success', 'Trạng thái công việc đã được cập nhật thành công!');
+        // Xác thực dữ liệu
+        $rules = ['status' => 'required|in:in_progress,completed'];
+
+        // Nếu trạng thái là hoàn thành, yêu cầu phải có file đính kèm
+        if ($request->status === 'completed') {
+            $rules['completion_files'] = 'required|array|min:1';
+            $rules['completion_files.*'] = 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,mp4,zip,rar|max:10240';
+        }
+
+        try {
+            $validated = $request->validate($rules, [
+                'completion_files.required' => 'Vui lòng đính kèm ít nhất một file kết quả khi hoàn thành công việc.',
+                'completion_files.array' => 'Định dạng file không hợp lệ.',
+                'completion_files.min' => 'Vui lòng đính kèm ít nhất một file kết quả khi hoàn thành công việc.',
+                'completion_files.*.file' => 'Tệp không hợp lệ.',
+                'completion_files.*.mimes' => 'Định dạng tệp không được hỗ trợ.',
+                'completion_files.*.max' => 'Kích thước tệp không được vượt quá 10MB.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $e->errors()
+                ], 422);
+            }
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        // Xử lý trong transaction
+        DB::beginTransaction();
+
+        try {
+            $previousStatus = $taskUser->status;
+            $currentAttemptNumber = $taskUser->completion_attempt ?? 0;
+
+            // Nếu từ trạng thái khác chuyển sang completed, tăng số lần hoàn thành
+            if ($validated['status'] === TaskUser::STATUS_COMPLETED && $previousStatus !== TaskUser::STATUS_COMPLETED) {
+                $currentAttemptNumber++;
+
+                // Cập nhật trạng thái và lần hoàn thành
+                $task->users()->updateExistingPivot($user->id, [
+                    'status' => TaskUser::STATUS_COMPLETED,
+                    'completion_date' => now(),
+                    'completion_attempt' => $currentAttemptNumber
+                ]);
+
+                // Upload files
+                if ($request->hasFile('completion_files')) {
+                    $taskUserId = DB::table('task_user')
+                        ->where('task_id', $task->id)
+                        ->where('user_id', $user->id)
+                        ->value('id');
+
+                    foreach ($request->file('completion_files') as $file) {
+                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $file->storeAs('task_user_attachments', $filename, 'public');
+
+                        DB::table('task_user_attachments')->insert([
+                            'task_user_id' => $taskUserId,
+                            'filename' => $filename,
+                            'original_filename' => $file->getClientOriginalName(),
+                            'file_path' => 'storage/task_user_attachments/' . $filename,
+                            'file_type' => $file->getClientOriginalExtension(),
+                            'file_size' => $file->getSize(),
+                            'uploaded_by' => $user->id,
+                            'completion_attempt' => $currentAttemptNumber,
+                            'description' => $request->file_description,
+                            'is_active' => true,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+                }
+            }
+            // Nếu từ completed chuyển sang in_progress
+            else if ($validated['status'] === TaskUser::STATUS_IN_PROGRESS && in_array($previousStatus, [TaskUser::STATUS_COMPLETED])) {
+                // Cập nhật trạng thái
+                $task->users()->updateExistingPivot($user->id, [
+                    'status' => TaskUser::STATUS_IN_PROGRESS,
+                    'completion_date' => null
+                ]);
+
+                // Đánh dấu các file của lần hoàn thành hiện tại là không còn active
+                $taskUserId = DB::table('task_user')
+                    ->where('task_id', $task->id)
+                    ->where('user_id', $user->id)
+                    ->value('id');
+
+                DB::table('task_user_attachments')
+                    ->where('task_user_id', $taskUserId)
+                    ->where('completion_attempt', $currentAttemptNumber)
+                    ->update([
+                        'is_active' => false,
+                        'updated_at' => now()
+                    ]);
+            }
+            // Các trường hợp khác chỉ cập nhật trạng thái
+            else {
+                $task->users()->updateExistingPivot($user->id, [
+                    'status' => $validated['status']
+                ]);
+            }
+
+            DB::commit();
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Trạng thái công việc đã được cập nhật thành công.',
+                    'data' => [
+                        'status' => $validated['status'],
+                        'completion_date' => $validated['status'] === TaskUser::STATUS_COMPLETED ? now()->format('d/m/Y H:i') : null
+                    ]
+                ]);
+            }
+
+            return redirect()->route('tasks.show', $task)
+                ->with('success', 'Trạng thái công việc đã được cập nhật thành công.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đã xảy ra lỗi: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()->back()
+                ->with('error', 'Đã xảy ra lỗi: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    public function downloadUserAttachment($id)
+    {
+        $attachment = TaskUserAttachment::findOrFail($id);
+        $taskUser = $attachment->taskUser;
+        $task = Task::findOrFail($taskUser->task_id);
+        $uploader = User::findOrFail($taskUser->user_id);
+
+        // Lấy thông tin người đang đăng nhập
+        $user = Auth::user();
+        $canAccess = false;
+
+        // 1. Admin, Giám đốc, Phó giám đốc xem được tất cả
+        if ($user->isAdmin() || $user->isDirector() || $user->isDeputyDirector()) {
+            $canAccess = true;
+        }
+
+
+        // 2. Người upload file luôn có quyền xem file của mình
+        elseif ($taskUser->user_id == $user->id) {
+            $canAccess = true;
+        }
+        // 3. Người tạo task có quyền xem file của người thực hiện
+        elseif ($task->created_by == $user->id) {
+            $canAccess = true;
+        }
+        // 4. Trưởng phòng và Phó phòng xem được file của nhân viên trong phòng mình
+        elseif (($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) &&
+            $uploader->department_id == $user->department_id
+        ) {
+            $canAccess = true;
+        }
+
+        // Nếu không có quyền truy cập
+        if (!$canAccess) {
+            return redirect()->back()->with('error', 'Bạn không có quyền tải file này!');
+        }
+
+        // Kiểm tra file có tồn tại không
+        if (!file_exists(public_path($attachment->file_path))) {
+            return redirect()->back()->with('error', 'Tệp đính kèm không tồn tại!');
+        }
+
+        // Trả về file để tải xuống
+        return response()->download(public_path($attachment->file_path), $attachment->original_filename);
     }
 
     /**
@@ -718,6 +1406,45 @@ class TaskController extends Controller
         return redirect()->route('tasks.show', $task)->with('success', 'Công việc đã được phê duyệt thành công!');
     }
 
+    public function rejectCompletion(Request $request, Task $task, User $assignee)
+    {
+        $user = Auth::user();
+
+        // Check if user has permission to approve/reject
+        $canApprove = false;
+
+        if ($user->isAdmin() || $task->created_by === $user->id) {
+            $canApprove = true;
+        } elseif ($user->isDepartmentHead() && $assignee->department_id === $user->department_id) {
+            $canApprove = true;
+        } elseif ($user->isDeputyDepartmentHead() && $assignee->department_id === $user->department_id && $assignee->isStaff()) {
+            $canApprove = true;
+        }
+
+        if (!$canApprove) {
+            return redirect()->route('tasks.show', $task)->with('error', 'Bạn không có quyền từ chối kết quả công việc này!');
+        }
+
+        // Validate rejection reason
+        $validated = $request->validate([
+            'rejection_reason' => 'required|string|max:500',
+        ]);
+
+        // Store rejection details
+        $task->users()->updateExistingPivot($assignee->id, [
+            'status' => TaskUser::STATUS_APPROVAL_REJECTED,
+            'approved_by' => $user->id,
+            'approved_at' => now(),
+            'approved_rejected' => true,
+            'approved_rejected_reason' => json_encode([
+                'message' => $validated['rejection_reason'],
+                'rejected_at' => now()->format('Y-m-d H:i:s')
+            ])
+        ]);
+
+        return redirect()->route('tasks.show', $task)->with('success', 'Đã từ chối kết quả công việc!');
+    }
+
     /**
      * Get departments available to the current user
      */
@@ -747,13 +1474,13 @@ class TaskController extends Controller
             return User::where('id', '!=', $user->id)
                 ->where('role_id', '!=', $user->role_id) // không giao việc cho chính mình
                 ->whereHas('role', function ($query) {
-                    $query->whereIn('slug', ['deputy-director','department-head','deputy-department-head','staff']); 
+                    $query->whereIn('slug', ['deputy-director', 'department-head', 'deputy-department-head', 'staff']);
                 })
                 ->get();
         } elseif ($user->isDeputyDirector()) {
             return User::where('id', '!=', $user->id)
                 ->whereHas('role', function ($query) {
-                    $query->whereIn('slug', ['department-head', 'deputy-department-head', 'staff']); 
+                    $query->whereIn('slug', ['department-head', 'deputy-department-head', 'staff']);
                 })
                 ->get();
         } elseif ($user->isDepartmentHead()) {
@@ -783,16 +1510,23 @@ class TaskController extends Controller
     {
         $user = Auth::user();
 
-        if (!($user->isAdmin() || $user->isDirector() || $user->isDeputyDirector() || $user->isDepartmentHead() || $user->isDeputyDepartmentHead())) {
+        // Kiểm tra quyền truy cập
+        if (
+            !in_array($user->role->slug, ['admin', 'director', 'deputy-director', 'department-head', 'deputy-department-head', 'staff'])
+        ) {
             return redirect()->route('tasks.index')->with('error', 'Bạn không có quyền xem thống kê!');
         }
 
         $year = $request->input('year', date('Y'));
         $month = $request->input('month', date('m'));
+        $selectedTaskId = $request->input('task_id');
 
         // Get start and end dates for queries
         $startDate = "$year-$month-01 00:00:00";
         $endDate = date('Y-m-t 23:59:59', strtotime($startDate));
+
+        // Phân quyền truy cập dữ liệu theo vai trò
+        $queryScope = $this->getStatisticsQueryScope($user);
 
         // Department and user statistics
         $departmentStats = $this->getDepartmentStatistics($user, $year, $month);
@@ -801,19 +1535,8 @@ class TaskController extends Controller
         // Get task counts by status
         $taskQuery = Task::whereBetween('created_at', [$startDate, $endDate]);
 
-        // Filter by user's access level
-        if (!$user->isAdmin() && !$user->isDirector() && !$user->isDeputyDirector()) {
-            if ($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
-                $departmentId = $user->department_id;
-                $taskQuery->whereHas('departments', function ($query) use ($departmentId) {
-                    $query->where('departments.id', $departmentId);
-                });
-            } else {
-                $taskQuery->whereHas('users', function ($query) use ($user) {
-                    $query->where('users.id', $user->id);
-                });
-            }
-        }
+        // Áp dụng phân quyền truy cập dữ liệu
+        $this->applyQueryScope($taskQuery, $queryScope, $user);
 
         $allTasks = $taskQuery->get();
         $totalTasks = $allTasks->count();
@@ -843,14 +1566,28 @@ class TaskController extends Controller
             }
         }
 
-        // Recent completions
-        $recentCompletions = DB::table('task_user')
+        // Recent completions query with scope
+        $recentCompletionsQuery = DB::table('task_user')
             ->join('tasks', 'task_user.task_id', '=', 'tasks.id')
             ->join('users', 'task_user.user_id', '=', 'users.id')
             ->select('task_user.*', 'tasks.title', 'users.name')
             ->where('task_user.status', 'completed')
             ->whereNotNull('task_user.approved_at')
-            ->whereBetween('task_user.completion_date', [$startDate, $endDate])
+            ->whereBetween('task_user.completion_date', [$startDate, $endDate]);
+
+        // Áp dụng phân quyền cho recent completions
+        if ($user->role->slug === 'staff') {
+            $recentCompletionsQuery->where('task_user.user_id', $user->id);
+        } elseif ($user->role->slug === 'department-head' || $user->role->slug === 'deputy-department-head') {
+            $recentCompletionsQuery->whereExists(function ($query) use ($user) {
+                $query->select(DB::raw(1))
+                    ->from('users')
+                    ->whereColumn('users.id', 'task_user.user_id')
+                    ->where('users.department_id', $user->department_id);
+            });
+        }
+
+        $recentCompletions = $recentCompletionsQuery
             ->orderBy('task_user.completion_date', 'desc')
             ->limit(10)
             ->get();
@@ -899,38 +1636,56 @@ class TaskController extends Controller
             $departmentChartData['pending'][] = $dept['pending'];
         }
 
-        // Recent activity timeline
+        // Recent activity timeline với scope
         $recentActivities = [];
 
-        // Get task creations
-        $taskCreations = Task::with('creator')
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->orderBy('created_at', 'desc')
-            ->limit(20)
-            ->get();
+        // Get task creations với scope
+        $taskCreationsQuery = Task::with('creator')->whereBetween('created_at', [$startDate, $endDate]);
+        $this->applyQueryScope($taskCreationsQuery, $queryScope, $user);
+        $taskCreations = $taskCreationsQuery->orderBy('created_at', 'desc')->limit(20)->get();
 
-        // Get task completions
-        $taskCompletions = DB::table('task_user')
+        // Get task completions với scope
+        $taskCompletionsQuery = DB::table('task_user')
             ->join('tasks', 'task_user.task_id', '=', 'tasks.id')
             ->join('users', 'task_user.user_id', '=', 'users.id')
             ->select('task_user.*', 'tasks.title', 'users.name')
             ->where('task_user.status', 'completed')
             ->whereNotNull('task_user.completion_date')
-            ->whereBetween('task_user.completion_date', [$startDate, $endDate])
-            ->orderBy('task_user.completion_date', 'desc')
-            ->limit(20)
-            ->get();
+            ->whereBetween('task_user.completion_date', [$startDate, $endDate]);
 
-        // Get task extensions
-        $taskExtensions = DB::table('task_extensions')
+        if ($user->role->slug === 'staff') {
+            $taskCompletionsQuery->where('task_user.user_id', $user->id);
+        } elseif ($user->role->slug === 'department-head' || $user->role->slug === 'deputy-department-head') {
+            $taskCompletionsQuery->whereExists(function ($query) use ($user) {
+                $query->select(DB::raw(1))
+                    ->from('users')
+                    ->whereColumn('users.id', 'task_user.user_id')
+                    ->where('users.department_id', $user->department_id);
+            });
+        }
+
+        $taskCompletions = $taskCompletionsQuery->orderBy('task_user.completion_date', 'desc')->limit(20)->get();
+
+        // Get task extensions with scope
+        $taskExtensionsQuery = DB::table('task_extensions')
             ->join('tasks', 'task_extensions.task_id', '=', 'tasks.id')
             ->join('users', 'task_extensions.user_id', '=', 'users.id')
             ->join('users as requesters', 'task_extensions.requested_by', '=', 'requesters.id')
             ->select('task_extensions.*', 'tasks.title', 'users.name', 'requesters.name as requester_name')
-            ->whereBetween('task_extensions.requested_at', [$startDate, $endDate])
-            ->orderBy('task_extensions.requested_at', 'desc')
-            ->limit(20)
-            ->get();
+            ->whereBetween('task_extensions.requested_at', [$startDate, $endDate]);
+
+        if ($user->role->slug === 'staff') {
+            $taskExtensionsQuery->where('task_extensions.user_id', $user->id);
+        } elseif ($user->role->slug === 'department-head' || $user->role->slug === 'deputy-department-head') {
+            $taskExtensionsQuery->whereExists(function ($query) use ($user) {
+                $query->select(DB::raw(1))
+                    ->from('users')
+                    ->whereColumn('users.id', 'task_extensions.user_id')
+                    ->where('users.department_id', $user->department_id);
+            });
+        }
+
+        $taskExtensions = $taskExtensionsQuery->orderBy('task_extensions.requested_at', 'desc')->limit(20)->get();
 
         // Combine and format activities by date
         $activities = [];
@@ -938,12 +1693,13 @@ class TaskController extends Controller
         foreach ($taskCreations as $creation) {
             $date = date('Y-m-d', strtotime($creation->created_at));
             $activities[$date][] = [
+                'type' => 'create',
                 'time' => date('H:i', strtotime($creation->created_at)),
-                'user' => $creation->creator->name,
-                'action' => 'đã tạo công việc',
+                'user' => $creation->creator->name ?? 'N/A',
+                'action' => 'đã tạo công việc mới',
                 'description' => $creation->title,
                 'task_id' => $creation->id,
-                'icon' => 'fa-plus',
+                'icon' => 'fa-plus-circle',
                 'color' => 'bg-blue'
             ];
         }
@@ -951,12 +1707,13 @@ class TaskController extends Controller
         foreach ($taskCompletions as $completion) {
             $date = date('Y-m-d', strtotime($completion->completion_date));
             $activities[$date][] = [
+                'type' => 'complete',
                 'time' => date('H:i', strtotime($completion->completion_date)),
-                'user' => $completion->name,
+                'user' => $completion->name ?? 'N/A',
                 'action' => 'đã hoàn thành công việc',
                 'description' => $completion->title,
                 'task_id' => $completion->task_id,
-                'icon' => 'fa-check',
+                'icon' => 'fa-check-circle',
                 'color' => 'bg-green'
             ];
         }
@@ -964,8 +1721,9 @@ class TaskController extends Controller
         foreach ($taskExtensions as $extension) {
             $date = date('Y-m-d', strtotime($extension->requested_at));
             $activities[$date][] = [
+                'type' => 'extend',
                 'time' => date('H:i', strtotime($extension->requested_at)),
-                'user' => $extension->requester_name,
+                'user' => $extension->requester_name ?? 'N/A',
                 'action' => 'đã yêu cầu gia hạn cho',
                 'description' => $extension->title,
                 'task_id' => $extension->task_id,
@@ -978,6 +1736,7 @@ class TaskController extends Controller
         krsort($activities);
 
         // Format for view
+        $recentActivities = [];
         foreach ($activities as $date => $items) {
             $recentActivities[] = [
                 'date' => date('d/m/Y', strtotime($date)),
@@ -985,16 +1744,192 @@ class TaskController extends Controller
             ];
         }
 
-        // Get top performers (users with most completed tasks)
+        // Get top performers (users with most completed tasks) with scope
         $topPerformers = collect($userStats)
             ->sortByDesc('completed')
-            ->take(5)
-            ->values()
-            ->all();
+            ->filter(function ($item) {
+                return $item['completed'] > 0;
+            })
+            ->take(10)
+            ->values();
+
+        // Get available tasks for selection dropdown
+        $availableTasksQuery = Task::query();
+        $this->applyQueryScope($availableTasksQuery, $queryScope, $user);
+        $availableTasks = $availableTasksQuery->orderBy('created_at', 'desc')->take(50)->get();
+
+        // Thống kê chi tiết theo task
+        $taskDetailStats = [];
+        $selectedTaskDetails = null;
+
+        // If a specific task is selected, only show that task's statistics
+        if ($selectedTaskId) {
+            $selectedTask = Task::with(['users', 'departments', 'users.department', 'creator'])
+                ->where('id', $selectedTaskId);
+            
+            // Apply permission check
+            if ($queryScope === 'department') {
+                $departmentId = $user->department_id;
+                $selectedTask->where(function ($q) use ($departmentId, $user) {
+                    $q->whereHas('departments', function ($q1) use ($departmentId) {
+                        $q1->where('departments.id', $departmentId);
+                    })
+                    ->orWhereHas('users', function ($q1) use ($departmentId) {
+                        $q1->where('users.department_id', $departmentId);
+                    })
+                    ->orWhere('created_by', $user->id);
+                });
+            } elseif ($queryScope === 'self') {
+                $selectedTask->where(function ($q) use ($user) {
+                    $q->whereHas('users', function ($q1) use ($user) {
+                        $q1->where('users.id', $user->id);
+                    })
+                    ->orWhere('created_by', $user->id);
+                });
+            }
+            
+            $selectedTask = $selectedTask->first();
+            
+            if ($selectedTask) {
+                $taskDetail = [
+                    'id' => $selectedTask->id,
+                    'title' => $selectedTask->title,
+                    'deadline' => $selectedTask->deadline->format('d/m/Y H:i'),
+                    'created_by' => $selectedTask->creator->name ?? 'N/A',
+                    'for_departments' => $selectedTask->for_departments,
+                    'departments' => [],
+                    'users' => [],
+                    'completion_rate' => 0
+                ];
+
+                // Nếu task được giao cho phòng ban
+                if ($selectedTask->for_departments) {
+                    foreach ($selectedTask->departments as $department) {
+                        $departmentStats = $this->getTaskDepartmentStats($selectedTask, $department);
+                        $taskDetail['departments'][] = $departmentStats;
+                    }
+
+                    // Sort departments by completion rate
+                    usort($taskDetail['departments'], function ($a, $b) {
+                        return $b['completion_rate'] <=> $a['completion_rate'];
+                    });
+
+                    // Calculate overall completion rate
+                    $totalAssignees = count($taskDetail['departments']);
+                    $totalCompletionRate = 0;
+
+                    if ($totalAssignees > 0) {
+                        foreach ($taskDetail['departments'] as $dept) {
+                            $totalCompletionRate += $dept['completion_rate'];
+                        }
+                        $taskDetail['completion_rate'] = $totalCompletionRate / $totalAssignees;
+                    }
+                }
+                // Nếu task được giao cho cá nhân
+                else {
+                    foreach ($selectedTask->users as $taskUser) {
+                        $userStats = $this->getTaskUserStats($selectedTask, $taskUser);
+                        $taskDetail['users'][] = $userStats;
+                    }
+
+                    // Sort users by completion rate
+                    usort($taskDetail['users'], function ($a, $b) {
+                        return $b['completion_rate'] <=> $a['completion_rate'];
+                    });
+
+                    // Calculate overall completion rate
+                    $totalAssignees = count($taskDetail['users']);
+                    $totalCompletionRate = 0;
+
+                    if ($totalAssignees > 0) {
+                        foreach ($taskDetail['users'] as $userStat) {
+                            $totalCompletionRate += $userStat['completion_rate'];
+                        }
+                        $taskDetail['completion_rate'] = $totalCompletionRate / $totalAssignees;
+                    }
+                }
+
+                $selectedTaskDetails = $taskDetail;
+            }
+        } else {
+            // Get tasks assigned in the selected month/year
+            $detailedTasksQuery = Task::with(['users', 'departments', 'users.department', 'creator'])
+                ->whereBetween('created_at', [$startDate, $endDate]);
+
+            // Áp dụng phân quyền 
+            $this->applyQueryScope($detailedTasksQuery, $queryScope, $user);
+
+            $detailedTasks = $detailedTasksQuery->get();
+
+            foreach ($detailedTasks as $task) {
+                $taskDetail = [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'deadline' => $task->deadline->format('d/m/Y H:i'),
+                    'created_by' => $task->creator->name ?? 'N/A',
+                    'for_departments' => $task->for_departments,
+                    'departments' => [],
+                    'users' => [],
+                    'completion_rate' => 0
+                ];
+
+                // Nếu task được giao cho phòng ban
+                if ($task->for_departments) {
+                    foreach ($task->departments as $department) {
+                        $departmentStats = $this->getTaskDepartmentStats($task, $department);
+                        $taskDetail['departments'][] = $departmentStats;
+                    }
+
+                    // Sort departments by completion rate
+                    usort($taskDetail['departments'], function ($a, $b) {
+                        return $b['completion_rate'] <=> $a['completion_rate'];
+                    });
+
+                    // Calculate overall completion rate
+                    $totalAssignees = count($taskDetail['departments']);
+                    $totalCompletionRate = 0;
+
+                    if ($totalAssignees > 0) {
+                        foreach ($taskDetail['departments'] as $dept) {
+                            $totalCompletionRate += $dept['completion_rate'];
+                        }
+                        $taskDetail['completion_rate'] = $totalCompletionRate / $totalAssignees;
+                    }
+                }
+                // Nếu task được giao cho cá nhân
+                else {
+                    foreach ($task->users as $taskUser) {
+                        $userStats = $this->getTaskUserStats($task, $taskUser);
+                        $taskDetail['users'][] = $userStats;
+                    }
+
+                    // Sort users by completion rate
+                    usort($taskDetail['users'], function ($a, $b) {
+                        return $b['completion_rate'] <=> $a['completion_rate'];
+                    });
+
+                    // Calculate overall completion rate
+                    $totalAssignees = count($taskDetail['users']);
+                    $totalCompletionRate = 0;
+
+                    if ($totalAssignees > 0) {
+                        foreach ($taskDetail['users'] as $userStat) {
+                            $totalCompletionRate += $userStat['completion_rate'];
+                        }
+                        $taskDetail['completion_rate'] = $totalCompletionRate / $totalAssignees;
+                    }
+                }
+
+                $taskDetailStats[] = $taskDetail;
+            }
+
+            // Sort tasks by creation date (newest first)
+            usort($taskDetailStats, function ($a, $b) {
+                return $b['id'] <=> $a['id'];
+            });
+        }
 
         return view('manager_task.tasks.statistics', compact(
-            'departmentStats',
-            'userStats',
             'year',
             'month',
             'totalTasks',
@@ -1006,61 +1941,136 @@ class TaskController extends Controller
             'departmentChartData',
             'recentCompletions',
             'recentActivities',
-            'topPerformers'
+            'topPerformers',
+            'taskDetailStats',
+            'availableTasks',
+            'selectedTaskDetails',
+            'selectedTaskId'
         ));
     }
 
     /**
-     * Get department task statistics 
+     * Define query scope based on user role
+     */
+    private function getStatisticsQueryScope(User $user)
+    {
+        // Admin, Director, and Deputy Director can see all data
+        if ($user->role->slug === 'admin' || $user->role->slug === 'director' || $user->role->slug === 'deputy-director') {
+            return 'all'; // See all data
+        } 
+        // Department Head and Deputy Department Head can see department data
+        elseif ($user->role->slug === 'department-head' || $user->role->slug === 'deputy-department-head') {
+            return 'department'; // See department data
+        } 
+        // Regular staff and other roles can only see their own data
+        else {
+            return 'self'; // See only own data
+        }
+    }
+
+    /**
+     * Apply query scope based on user role
+     */
+    private function applyQueryScope($query, $scope, User $user)
+    {
+        if ($scope === 'department') {
+            $departmentId = $user->department_id;
+
+            $query->where(function ($q) use ($departmentId, $user) {
+                // Tasks assigned to the department
+                $q->whereHas('departments', function ($q1) use ($departmentId) {
+                    $q1->where('departments.id', $departmentId);
+                });
+
+                // OR Tasks assigned to users in the department
+                $q->orWhereHas('users', function ($q1) use ($departmentId) {
+                    $q1->where('users.department_id', $departmentId);
+                });
+
+                // OR Tasks created by the user
+                $q->orWhere('tasks.created_by', $user->id);
+            });
+        } elseif ($scope === 'self') {
+            $userId = $user->id;
+
+            $query->where(function ($q) use ($userId) {
+                // Tasks assigned to the user
+                $q->whereHas('users', function ($q1) use ($userId) {
+                    $q1->where('users.id', $userId);
+                });
+
+                // OR Tasks created by the user
+                $q->orWhere('tasks.created_by', $userId);
+            });
+        }
+        // For 'all' scope, no filtering needed
+    }
+
+    /**
+     * Get department task statistics with scope
      */
     private function getDepartmentStatistics(User $user, $year, $month)
     {
         $startDate = "$year-$month-01 00:00:00";
         $endDate = date('Y-m-t 23:59:59', strtotime($startDate));
+        $queryScope = $this->getStatisticsQueryScope($user);
 
-        if ($user->isAdmin() || $user->isDirector() || $user->isDeputyDirector()) {
+        // Get departments based on user role
+        if ($queryScope === 'all') {
             $departments = Department::all();
-        } else {
+        } elseif ($queryScope === 'department') {
             $departments = Department::where('id', $user->department_id)->get();
+        } else {
+            // For staff, only show their own department for reference
+            $departments = $user->department_id ? Department::where('id', $user->department_id)->get() : collect();
         }
 
         $stats = collect();
 
         foreach ($departments as $department) {
-            $departmentTasks = Task::whereHas('departments', function ($query) use ($department) {
-                $query->where('departments.id', $department->id);
-            })
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->get();
+            // Base query for tasks related to this department
+            $tasksQuery = Task::query();
 
+            if ($queryScope === 'self') {
+                // Staff can only see tasks assigned to them
+                $tasksQuery->whereHas('users', function ($q) use ($user) {
+                    $q->where('users.id', $user->id);
+                });
+            } else {
+                // Department heads see all department tasks, admins/directors see all
+                $tasksQuery->where(function ($q) use ($department) {
+                    $q->whereHas('departments', function ($q1) use ($department) {
+                        $q1->where('departments.id', $department->id);
+                    });
+
+                    $q->orWhereHas('users', function ($q1) use ($department) {
+                        $q1->where('users.department_id', $department->id);
+                    });
+                });
+            }
+
+            $tasksQuery->whereBetween('created_at', [$startDate, $endDate]);
+            $tasks = $tasksQuery->get();
+
+            $total = $tasks->count();
             $completed = 0;
             $late = 0;
-            $incomplete = 0;
 
-            foreach ($departmentTasks as $task) {
-                $taskUser = $task->users()
-                    ->whereHas('department', function ($query) use ($department) {
-                        $query->where('departments.id', $department->id);
-                    })
-                    ->first();
-
-                if ($taskUser && $taskUser->pivot->status === 'completed' && $taskUser->pivot->approved_at) {
-                    if ($taskUser->pivot->completion_date <= $task->deadline) {
-                        $completed++;
-                    } else {
-                        $late++;
-                    }
-                } else {
-                    $incomplete++;
+            foreach ($tasks as $task) {
+                if ($this->determineTaskStatus($task) === 'completed') {
+                    $completed++;
+                } else if ($this->determineTaskStatus($task) === 'overdue') {
+                    $late++;
                 }
             }
 
             $stats->push([
                 'department' => $department->name,
+                'total' => $total,
                 'completed' => $completed,
                 'late' => $late,
-                'incomplete' => $incomplete,
-                'total' => $departmentTasks->count()
+                'incomplete' => $total - $completed,
+                'completion_rate' => $total > 0 ? ($completed / $total) * 100 : 0
             ]);
         }
 
@@ -1068,57 +2078,137 @@ class TaskController extends Controller
     }
 
     /**
-     * Get user task statistics
+     * Get user task statistics with scope
      */
     private function getUserStatistics(User $user, $year, $month)
     {
         $startDate = "$year-$month-01 00:00:00";
         $endDate = date('Y-m-t 23:59:59', strtotime($startDate));
+        $queryScope = $this->getStatisticsQueryScope($user);
 
-        if ($user->isAdmin() || $user->isDirector() || $user->isDeputyDirector()) {
+        // Get users based on user role
+        if ($queryScope === 'all') {
             $users = User::all();
-        } elseif ($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
+        } elseif ($queryScope === 'department') {
             $users = User::where('department_id', $user->department_id)->get();
         } else {
-            $users = collect([$user]);
+            $users = User::where('id', $user->id)->get();
         }
 
         $stats = collect();
 
         foreach ($users as $u) {
-            $userTasks = $u->tasks()
-                ->whereBetween('tasks.created_at', [$startDate, $endDate])
-                ->get();
+            // Base query for tasks assigned to this user
+            $tasksQuery = Task::query()
+                ->whereHas('users', function ($q) use ($u) {
+                    $q->where('users.id', $u->id);
+                })
+                ->whereBetween('created_at', [$startDate, $endDate]);
 
-            $completed = $userTasks->filter(function ($task) use ($u) {
-                return $task->pivot->status === 'completed' &&
-                    $task->pivot->approved_at &&
-                    $task->pivot->completion_date <= $task->deadline;
-            })->count();
+            $tasks = $tasksQuery->get();
 
-            $late = $userTasks->filter(function ($task) use ($u) {
-                return $task->pivot->status === 'completed' &&
-                    $task->pivot->approved_at &&
-                    $task->pivot->completion_date > $task->deadline;
-            })->count();
+            $total = $tasks->count();
+            $completed = 0;
+            $late = 0;
 
-            $incomplete = $userTasks->filter(function ($task) use ($u) {
-                return $task->pivot->status !== 'completed' || !$task->pivot->approved_at;
-            })->count();
+            foreach ($tasks as $task) {
+                $taskUser = $task->users()->where('users.id', $u->id)->first();
+                if ($taskUser && $taskUser->pivot->status === TaskUser::STATUS_COMPLETED) {
+                    $completed++;
+                } else if ($task->deadline < now() && (!$taskUser || $taskUser->pivot->status !== TaskUser::STATUS_COMPLETED)) {
+                    $late++;
+                }
+            }
 
             $stats->push([
                 'user' => $u->name,
-                'department' => $u->department->name ?? 'N/A',
+                'department' => $u->department ? $u->department->name : 'N/A',
+                'total' => $total,
                 'completed' => $completed,
                 'late' => $late,
-                'incomplete' => $incomplete,
-                'total' => $userTasks->count()
+                'incomplete' => $total - $completed,
+                'completion_rate' => $total > 0 ? ($completed / $total) * 100 : 0
             ]);
         }
 
         return $stats;
     }
 
+    /**
+     * Get statistics for a specific task department
+     */
+    private function getTaskDepartmentStats(Task $task, Department $department)
+    {
+        // Get all users in department assigned to this task
+        $departmentUsers = $task->users()
+            ->where('users.department_id', $department->id)
+            ->get();
+
+        $totalUsers = $departmentUsers->count();
+        $completedUsers = 0;
+        $overdueUsers = 0;
+
+        foreach ($departmentUsers as $user) {
+            $status = $user->pivot->status;
+
+            if ($status === TaskUser::STATUS_COMPLETED) {
+                $completedUsers++;
+            } else if ($task->deadline < now() && $status !== TaskUser::STATUS_COMPLETED) {
+                $overdueUsers++;
+            }
+        }
+
+        return [
+            'department_id' => $department->id,
+            'department_name' => $department->name,
+            'total_users' => $totalUsers,
+            'completed_users' => $completedUsers,
+            'overdue_users' => $overdueUsers,
+            'completion_rate' => $totalUsers > 0 ? ($completedUsers / $totalUsers) * 100 : 0
+        ];
+    }
+
+    /**
+     * Get statistics for a specific task user
+     */
+    private function getTaskUserStats(Task $task, User $assignee)
+    {
+        $taskUser = $task->users()
+            ->where('users.id', $assignee->id)
+            ->first();
+
+        $status = $taskUser ? $taskUser->pivot->status : 'unknown';
+        $viewed = $taskUser && $taskUser->pivot->viewed_at;
+        $completionRate = 0;
+
+        // Calculate completion rate based on status
+        switch ($status) {
+            case TaskUser::STATUS_COMPLETED:
+            case TaskUser::STATUS_APPROVED:
+                $completionRate = 100;
+                break;
+            case TaskUser::STATUS_IN_PROGRESS:
+                $completionRate = 50;
+                break;
+            case TaskUser::STATUS_VIEWED:
+                $completionRate = 25;
+                break;
+            case TaskUser::STATUS_SENDING:
+                $completionRate = $viewed ? 10 : 0;
+                break;
+            default:
+                $completionRate = 0;
+        }
+
+        return [
+            'user_id' => $assignee->id,
+            'user_name' => $assignee->name,
+            'department' => $assignee->department ? $assignee->department->name : 'N/A',
+            'status' => $status,
+            'completion_rate' => $completionRate,
+            'is_overdue' => $task->deadline < now() && $status !== TaskUser::STATUS_COMPLETED
+        ];
+    }
     /**
      * Determine task status based on assignment data
      */
@@ -1179,6 +2269,4 @@ class TaskController extends Controller
         // Return the file download response
         return response()->download(public_path($attachment->file_path), $attachment->original_filename);
     }
-
-
 }

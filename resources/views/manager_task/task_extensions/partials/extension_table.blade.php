@@ -81,13 +81,13 @@
                                     <i class="fas fa-times"></i>
                                 </button>
                                 
-                                <form id="approveForm{{ $extension->id }}" action="{{ route('task-extensions.update', $extension) }}" method="POST" class="d-none">
+                                <form id="approveForm{{ $extension->id }}" action="{{ route('task-extensions.respond', $extension) }}" method="POST" class="d-none">
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="status" value="approved">
                                 </form>
                                 
-                                <form id="rejectForm{{ $extension->id }}" action="{{ route('task-extensions.update', $extension) }}" method="POST" class="d-none">
+                                <form id="rejectForm{{ $extension->id }}" action="{{ route('task-extensions.respond', $extension) }}" method="POST" class="d-none">
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="status" value="rejected">

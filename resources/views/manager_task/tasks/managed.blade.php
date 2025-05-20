@@ -17,10 +17,10 @@
                 <div class="card-title">
                     <i class="fas fa-tasks icon-title"></i>
                     <h5>
-                        @if(Auth::user()->isDirector() || Auth::user()->isDeputyDirector())
+                        @if (Auth::user()->isAdmin() || Auth::user()->isDirector() || Auth::user()->isDeputyDirector())
                             Công việc của ban lãnh đạo
                         @else
-                            Công việc của phòng {{ Auth::user()->department->name }}
+                            Công việc của phòng {{ Auth::user()->department->name ?? 'N/A' }}
                         @endif
                     </h5>
                 </div>
@@ -35,18 +35,35 @@
                             <input type="text" id="title_filter" name="title" class="filter-input"
                                 placeholder="Tìm theo tiêu đề" value="{{ request('title') }}">
                         </div>
+
+                        @if (Auth::user()->isDirector() || Auth::user()->isDeputyDirector())
+                            <div class="filter-item">
+                                <label for="department_id">Phòng ban</label>
+                                <select id="department_id" name="department_id" class="filter-input">
+                                    <option value="">Tất cả phòng ban</option>
+                                    @foreach ($departments as $department)
+                                        <option value="{{ $department->id }}"
+                                            {{ request('department_id') == $department->id ? 'selected' : '' }}>
+                                            {{ $department->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
                         <div class="filter-item">
-                            <label for="status_filter">Trạng thái</label>
-                            <select id="status_filter" name="status" class="filter-input">
-                                <option value="">Tất cả trạng thái</option>
-                                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Chưa thực
-                                    hiện</option>
-                                <option value="in_progress" {{ request('status') == 'in_progress' ? 'selected' : '' }}>Đang
-                                    thực hiện</option>
-                                <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Hoàn
-                                    thành</option>
+                            <label for="creator_role">Vai trò người tạo</label>
+                            <select id="creator_role" name="creator_role" class="filter-input">
+                                <option value="">Tất cả vai trò</option>
+                                @foreach ($roles as $role)
+                                    <option value="{{ $role->id }}"
+                                        {{ request('creator_role') == $role->id ? 'selected' : '' }}>
+                                        {{ $role->name }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
+
                         <div class="filter-item">
                             <label for="overdue_filter">Thời hạn</label>
                             <select id="overdue_filter" name="overdue" class="filter-input">
@@ -68,23 +85,11 @@
             </div>
 
             <div class="card-content">
-                @if (session('success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="fas fa-check-circle me-2"></i> {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
 
-                @if (session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="fas fa-exclamation-circle me-2"></i> {{ session('error') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
-                @if (request('title') || request('status') || request('overdue'))
+                @if (request('title') || request('creator_role') || request('department_id') || request('overdue'))
                     <div class="active-filters">
                         <span class="active-filters-title">Đang lọc: </span>
+
                         @if (request('title'))
                             <span class="filter-tag">
                                 <span>Tiêu đề: {{ request('title') }}</span>
@@ -92,21 +97,29 @@
                                     class="remove-filter">×</a>
                             </span>
                         @endif
-                        @if (request('status'))
+
+                        @if (request('department_id') && (Auth::user()->isDirector() || Auth::user()->isDeputyDirector()))
+                            @php
+                                $dept = $departments->firstWhere('id', request('department_id'));
+                            @endphp
                             <span class="filter-tag">
-                                <span>Trạng thái:
-                                    {{ request('status') == 'pending'
-                                        ? 'Chưa thực hiện'
-                                        : (request('status') == 'in_progress'
-                                            ? 'Đang thực hiện'
-                                            : (request('status') == 'completed'
-                                                ? 'Hoàn thành'
-                                                : request('status'))) }}
-                                </span>
-                                <a href="{{ request()->url() }}?{{ http_build_query(request()->except('status')) }}"
+                                <span>Phòng ban: {{ $dept ? $dept->name : 'Không xác định' }}</span>
+                                <a href="{{ request()->url() }}?{{ http_build_query(request()->except('department_id')) }}"
                                     class="remove-filter">×</a>
                             </span>
                         @endif
+
+                        @if (request('creator_role'))
+                            @php
+                                $role = $roles->firstWhere('id', request('creator_role'));
+                            @endphp
+                            <span class="filter-tag">
+                                <span>Vai trò người tạo: {{ $role ? $role->name : 'Không xác định' }}</span>
+                                <a href="{{ request()->url() }}?{{ http_build_query(request()->except('creator_role')) }}"
+                                    class="remove-filter">×</a>
+                            </span>
+                        @endif
+
                         @if (request('overdue') !== null && request('overdue') !== '')
                             <span class="filter-tag">
                                 <span>Thời hạn: {{ request('overdue') == '1' ? 'Quá hạn' : 'Trong hạn' }}</span>
@@ -139,7 +152,7 @@
                                         Auth::user()->isDepartmentHead() ||
                                         Auth::user()->isDeputyDepartmentHead()))
                                 <a href="{{ route('tasks.create') }}" class="action-button">
-                                    <i class="fas fa-plus-circle"></i> Tạo công việc mới
+                                    <i class="fas fa-plus-circle mb-0"></i> Tạo công việc mới
                                 </a>
                             @endif
                         @endif
@@ -153,16 +166,14 @@
                                     <th class="column-large">Tiêu đề</th>
                                     <th class="column-medium">Người tạo</th>
                                     <th class="column-medium">Phòng ban</th>
-                                    <th class="column-medium">Người thực hiện</th>
                                     <th class="column-medium">Thời hạn</th>
-                                    <th class="column-small text-center">Trạng thái</th>
                                     <th class="column-small text-center">File</th>
                                     <th class="column-small text-center">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($tasks as $index => $task)
-                                    <tr>
+                                    <tr class="fs-7">
                                         <td class="text-center">{{ $task->id }}</td>
                                         <td class="item-title">
                                             {{ $task->title }}
@@ -173,59 +184,34 @@
                                         </td>
                                         <td>{{ $task->creator->name ?? 'N/A' }}</td>
                                         <td>
-                                            <div class="departments-list">
+                                            <div class="departments-list d-flex flex-column">
                                                 @foreach ($task->departments as $department)
-                                                    <span class="department-badge">{{ $department->name }}</span>
+                                                    <span class="department-badge">- {{ $department->name }}</span>
                                                 @endforeach
                                             </div>
                                         </td>
-                                        <td>
-                                            <div class="users-list">
-                                                @foreach ($task->users as $user)
-                                                    <div class="user-badge" title="{{ $user->name }}">
-                                                        <img src="https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&size=24"
-                                                            alt="{{ $user->name }}">
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        </td>
-                                        <td>
-                                            @if ($task->attachments->count() > 0)
-                                                <span class="attachment-count"
-                                                    title="{{ $task->attachments->count() }} tệp đính kèm">
-                                                    <i class="fas fa-paperclip"></i> {{ $task->attachments->count() }}
-                                                </span>
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
+                                        <td class="fs-7">
                                             {{ $task->deadline->format('d/m/Y H:i') }}
                                             @if (now() > $task->deadline && $task->status !== 'completed')
-                                                <span class="filter-tag"
+                                                <span class="filter-tag fs-8"
                                                     style="background-color: #fef0f0; color: #e53935;">Quá hạn</span>
                                             @elseif($task->deadline->diffInDays(now()) <= 3)
-                                                <span class="filter-tag"
+                                                <span class="filter-tag fs-8"
                                                     style="background-color: #fff8e1; color: #ff8f00;">Sắp hết hạn</span>
                                             @endif
                                         </td>
-                                        <td class="text-center">
-                                            <span
-                                                class="status-badge {{ $task->status === 'pending'
-                                                    ? 'status-inactive'
-                                                    : ($task->status === 'in_progress'
-                                                        ? 'bg-info text-white'
-                                                        : ($task->status === 'completed'
-                                                            ? 'status-active'
-                                                            : 'bg-info text-white')) }}">
-                                                {{ $task->status === 'pending'
-                                                    ? 'Chưa thực hiện'
-                                                    : ($task->status === 'in_progress'
-                                                        ? 'Đang thực hiện'
-                                                        : ($task->status === 'completed'
-                                                            ? 'Hoàn thành'
-                                                            : $task->status)) }}
-                                            </span>
+                                        <td>
+                                            @if ($task->attachments->count() > 0)
+                                                @foreach ($task->attachments as $attachment)
+                                                    <a href="{{ asset($attachment->file_path) }}"
+                                                        class="attachment-icon text-decoration-none p-1" target="_blank"
+                                                        title="{{ $attachment->filename }}">
+                                                        <i class="fas fa-file-download fa-xl"></i>
+                                                    </a>
+                                                @endforeach
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
                                         </td>
                                         <td>
                                             <div class="action-buttons-wrapper">
@@ -265,7 +251,7 @@
                                 {{ $tasks->total() }} công việc
                             </div>
                             <div class="pagination-controls">
-                                {{ $tasks->appends(request()->query())->links() }}
+                                {{ $tasks->appends(request()->query())->links('manager_task.components.paginate') }}
                             </div>
                         </div>
                     @endif
@@ -275,3 +261,30 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    // Auto submit when changing filters
+    document.getElementById('creator_role').addEventListener('change', function() {
+        document.querySelector('.filter-form').submit();
+    });
+
+    document.getElementById('overdue_filter').addEventListener('change', function() {
+        document.querySelector('.filter-form').submit();
+    });
+    
+    @if(Auth::user()->isDirector() || Auth::user()->isDeputyDirector())
+        document.getElementById('department_id').addEventListener('change', function() {
+            document.querySelector('.filter-form').submit();
+        });
+    @endif
+
+    // Confirm delete function
+    function confirmDelete(event, form) {
+        event.preventDefault();
+        if (confirm('Bạn có chắc chắn muốn xóa công việc này?')) {
+            form.submit();
+        }
+    }
+</script>
+@endpush

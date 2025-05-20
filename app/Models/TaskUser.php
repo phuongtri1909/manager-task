@@ -19,11 +19,12 @@ class TaskUser extends Model
         'viewed_at',
         'completion_date',
         'approved_rejected',
-        'approved_rejected_reason', //json
+        'approved_rejected_reason',
         'approved_by',
         'approved_at',
         'assigned_by',
-        'assigned_at'
+        'assigned_at',
+        'completion_attempt'
     ];
 
     /**
@@ -44,7 +45,13 @@ class TaskUser extends Model
         'completion_date' => 'datetime',
         'approved_at' => 'datetime',
         'assigned_at' => 'datetime',
+        'completion_attempt' => 'integer',
     ];
+
+    public function taskUserAttachments()
+    {
+        return $this->hasMany(TaskUserAttachment::class);
+    }
 
     public function task(): BelongsTo
     {
@@ -64,16 +71,15 @@ class TaskUser extends Model
     public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
-    }   
-
+    }
     public function getStatusTextAttribute(): string
     {
         return match ($this->status) {
-            self::STATUS_PENDING => 'Chờ gửi',
+            self::STATUS_SENDING => 'Đang gửi',
             self::STATUS_VIEWED => 'Đã xem',
             self::STATUS_IN_PROGRESS => 'Đang thực hiện',
             self::STATUS_COMPLETED => 'Đã hoàn thành',
-            self::STATUS_APPROVAL_REJECTED => 'Chờ phê duyệt',
+            self::STATUS_APPROVAL_REJECTED => 'Từ chối kết quả',
             self::STATUS_APPROVED => 'Đã phê duyệt',
             self::STATUS_REJECTED => 'Đã từ chối',
             default => 'Không xác định'
@@ -84,5 +90,4 @@ class TaskUser extends Model
     {
         return $this->completion_date && $this->completion_date < now();
     }
-
-} 
+}

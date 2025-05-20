@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const mainContent = document.querySelector('.main-content');
     const sidebarHeaderText = document.querySelector('.sidebar-header span');
     const menuTextElements = document.querySelectorAll('.sidebar-menu .menu-text');
+    // Add reference to the user info section
+    const sidebarUserInfo = document.querySelector('.sidebar-user');
 
     // Function to update text visibility based on sidebar state
     function updateTextVisibility(isCollapsed) {
@@ -18,6 +20,11 @@ document.addEventListener('DOMContentLoaded', function() {
         menuTextElements.forEach(element => {
             element.style.display = isCollapsed ? 'none' : '';
         });
+        
+        // Toggle visibility of the user info section
+        if (sidebarUserInfo) {
+            sidebarUserInfo.style.display = isCollapsed ? 'none' : '';
+        }
     }
     
     // Check for saved state

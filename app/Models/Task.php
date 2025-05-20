@@ -30,14 +30,41 @@ class Task extends Model
         'include_department_heads' => 'boolean',
     ];
 
-    /**
-     * Task status constants
-     */
-    const STATUS_PENDING = 'pending';
-    const STATUS_IN_PROGRESS = 'in_progress';
-    const STATUS_COMPLETED = 'completed';
-    const STATUS_APPROVED = 'approved';
-    const STATUS_REJECTED = 'rejected';
+    public function scopeVisibleTo($query, User $user)
+    {
+        $query->where(function($q) use ($user) {
+            // Direct assignments
+            $q->whereHas('users', function($subq) use ($user) {
+                $subq->where('users.id', $user->id);
+            });
+            
+            // Department tasks for department heads (with flag check)
+            if ($user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
+                $q->orWhereHas('departments', function($subq) use ($user) {
+                    $subq->where('departments.id', $user->department_id)
+                        ->where('task_departments.include_department_heads', true);
+                });
+            }
+            // Department tasks for regular staff
+            elseif ($user->department_id && !$user->isStaff()) {
+                $q->orWhereHas('departments', function($subq) use ($user) {
+                    $subq->where('departments.id', $user->department_id);
+                });
+            }
+        });
+        
+        return $query;
+    }
+
+    public function taskUsers(): HasMany
+    {
+        return $this->hasMany(TaskUser::class);
+    }
+
+    public function taskUser(): BelongsTo
+    {
+        return $this->belongsTo(TaskUser::class);
+    }
 
     /**
      * Get the task_departments relationship
@@ -45,11 +72,6 @@ class Task extends Model
     public function taskDepartments(): HasMany
     {
         return $this->hasMany(TaskDepartment::class);
-    }
-
-    public function isCompleted(): bool
-    {
-        return $this->status === self::STATUS_COMPLETED;
     }
 
     public function creator(): BelongsTo
@@ -69,7 +91,7 @@ class Task extends Model
         return $this->belongsToMany(User::class, 'task_user')
             ->withPivot('status', 'viewed_at', 'completion_date', 
                          'approved_rejected', 'approved_rejected_reason',
-                         'approved_by', 'approved_at', 'assigned_by', 'assigned_at')
+                         'approved_by', 'approved_at', 'assigned_by', 'assigned_at','completion_attempt')
             ->withTimestamps();
     }
 
@@ -123,40 +145,6 @@ class Task extends Model
             
         if ($taskUser) {
             $taskUser->update(['status' => $status]);
-            
-            // If status is completed, set completion date
-            if ($status === self::STATUS_COMPLETED) {
-                $taskUser->update(['completion_date' => now()]);
-            }
-        }
-    }
-    
-    /**
-     * Assign task to a user
-     */
-    public function assignToUser(User $user): void
-    {
-        if (!$this->users()->where('user_id', $user->id)->exists()) {
-            $this->users()->attach($user->id, [
-                'status' => self::STATUS_PENDING,
-            ]);
-        }
-    }
-    
-    /**
-     * Assign task to multiple users
-     */
-    public function assignToUsers(array $userIds): void
-    {
-        $data = [];
-        foreach ($userIds as $userId) {
-            if (!$this->users()->where('user_id', $userId)->exists()) {
-                $data[$userId] = ['status' => self::STATUS_PENDING];
-            }
-        }
-        
-        if (!empty($data)) {
-            $this->users()->attach($data);
         }
     }
     

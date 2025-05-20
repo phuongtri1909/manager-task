@@ -4,10 +4,12 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use App\Http\Traits\RoleBasedRedirects;
 use Illuminate\Support\Facades\Auth;
 
 class CheckRole
 {
+    use RoleBasedRedirects;
     /**
      * Handle an incoming request.
      *
@@ -31,8 +33,7 @@ class CheckRole
 
         // Kiểm tra role_id của người dùng
         if (!$user->role_id) {
-            return redirect()->route('tasks.index')
-                ->with('error', 'Tài khoản của bạn chưa được phân quyền.');
+            return $this->redirectBasedOnRole($user, 'Tài khoản của bạn chưa được phân quyền.');
         }
 
         // Admin always has access to everything
@@ -60,12 +61,12 @@ class CheckRole
         }
         
         foreach ($roles as $role) {
-            $methodName = 'is' . ucfirst($role);
+            $methodName = 'is' . str_replace(' ', '', ucwords(str_replace('-', ' ', $role)));
             
             // Check if method exists and returns true
             if (method_exists($user, $methodName) && call_user_func([$user, $methodName])) {
                 // For global roles (admin, director, deputy director)
-                if (in_array($role, ['admin', 'director', 'deputyDirector'])) {
+                if (in_array($role, ['admin', 'director', 'deputy-director','department-head', 'deputy-department-head'])) {
                     $hasPermission = true;
                     break;
                 }
@@ -85,16 +86,5 @@ class CheckRole
         
 
         return $this->redirectBasedOnRole($user, 'Bạn không có quyền truy cập trang này.');
-    }
-
-    protected function redirectBasedOnRole($user, $errorMessage = '')
-    {
-        if ($user->isAdmin()) {
-            return redirect()->route('tasks.index')->with('error', $errorMessage);
-        } elseif ($user->isDirector() || $user->isDeputyDirector() || $user->isDepartmentHead() || $user->isDeputyDepartmentHead()) {
-            return redirect()->route('tasks.managed')->with('error', $errorMessage);
-        } else {
-            return redirect()->route('tasks.received')->with('error', $errorMessage);
-        }
     }
 } 

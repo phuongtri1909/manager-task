@@ -54,7 +54,6 @@
                             <tr>
                                 <th class="column-small">STT</th>
                                 <th class="column-medium">Tên vai trò</th>
-                                
                                 <th class="column-small">Cấp độ</th>
                                 <th class="column-small">Phạm vi</th>
                                 <th class="column-small">Tạo task</th>
@@ -116,7 +115,7 @@
                         Hiển thị {{ $roles->firstItem() ?? 0 }} đến {{ $roles->lastItem() ?? 0 }} của {{ $roles->total() }} vai trò
                     </div>
                     <div class="pagination-controls">
-                        {{ $roles->appends(request()->query())->links() }}
+                        {{ $roles->appends(request()->query())->links('manager_task.components.paginate') }}
                     </div>
                 </div>
                 @endif

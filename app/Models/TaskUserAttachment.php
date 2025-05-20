@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class TaskUsertAttachment extends Model
+class TaskUserAttachment extends Model
 {
     use HasFactory, SoftDeletes, UseAuth;
 
@@ -20,6 +20,9 @@ class TaskUsertAttachment extends Model
         'file_type',
         'file_size',
         'uploaded_by',
+        'completion_attempt',
+        'description',
+        'is_active'
     ];
 
     /**
